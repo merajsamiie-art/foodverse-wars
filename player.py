@@ -108,6 +108,28 @@ def update_control_log(user_id: int, amount: float):
 
 
 # ─── XP / لِوِل ───
+CD_FAUCET = 600          # ⏳ شیر فودکوین: هر ۱۰ دقیقه
+
+
+def faucet(user_id: int) -> tuple:
+    """🪙 شیر فودکوین — بگو «فودکوین» یا «FC»: مقدار بر اساس لول + کمی شانس (نه ناعادلانه)."""
+    p = get(user_id)
+    if not p:
+        return False, "👤 دیتای تو را پیدا نکردم — یک دستور بزن تا ثبت شوی."
+    if on_cd(user_id, "faucet"):
+        return False, f"⏳ {cd_left(user_id, 'faucet')} ثانیه صبر — شیر هر ۱۰ دقیقه چکه می‌کند."
+    set_cd(user_id, "faucet", CD_FAUCET)
+    base = 12 + p["level"] * 2
+    luck = random.uniform(0.6, 1.6)          # کمی شانس — باند شده، نه قمار
+    roll = int(luck * 100)
+    amt = max(5, round(base * luck))
+    grant(user_id, fc=amt)
+    dtrack(user_id, "faucets")
+    return True, (f"🪙 <b>شیر فودکوین: +{amt:,}</b>\n"
+                  f"🎲 شانس: ×{luck:.2f} (رول {roll} از ۱۰۰)\n"
+                  f"📊 سطح {p['level']} → پایه {base:,} | دوباره تا ۱۰ دقیقه دیگر")
+
+
 def gain_xp(user_id: int, amount: float) -> list:
     p = get(user_id)
     msgs = []

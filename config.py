@@ -32,13 +32,13 @@ PROD_CAP_H = 8
 
 # ─── XP و لِوِل ───
 def xp_need(level: int) -> int:
-    return int(100 * (level ** 1.6))
+    return int(150 * (level ** 1.85))   # 🐌 پیشرفت خیلی سخت — لول بالا = افتخار واقعی
 
 XP_WAR_WIN = 40
 XP_WAR_LOSS = 10
 XP_BOSS_HIT = 12
 XP_CRAFT = 25
-XP_DAILY = 30
+XP_DAILY = 25
 
 # ─── مرگ/محافظت ───
 DEAD_MINUTES = 6                   # مرگ: ۶ دقیقه
@@ -67,7 +67,7 @@ BOSS_UNIT_LOSS = 0.03
 CD_BOSS = 30
 
 # ─── روزانه ───
-DAILY_FC = 150
+DAILY_FC = 100
 DAILY_STREAK_CAP = 7
 DAILY_REWARD_RES = 40
 DAILY_PACK_CHANCE = 0.5            # شانس پک رایگان در مأموریت روزانه
@@ -90,8 +90,8 @@ BUY_LIMIT = 500                    # سقف خرید NPC در هر دستور (�
 
 # ─── پک ───
 PACK_OPEN_CD = 10                  # حداقل ۱۰ ثانیه بین باز کردن (ضد دابل‌کلیک)
-PITY_PER_PACK = 0.01               # هر پک بدون Epic+: ۱٪ شانس اضافه
-PITY_CAP = 0.30                    # سقف بونوس Pity
+PITY_PER_PACK = 0.007              # هر پک بدون Epic+: ۰٫۷٪ شانس اضافه
+PITY_CAP = 0.20                    # سقف بونوس Pity
 
 # ─── Battle Pass ───
 PASS_TIERS = 20                    # تعداد پله‌های هر Pass

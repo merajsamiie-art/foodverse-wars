@@ -38,6 +38,39 @@ _feed: dict[int, tuple] = {}
 
 
 # ─── ارسال/ادیت ───
+# 💡 توضیح کوتاه بعد هر دستور — فقط یک خط، فقط اولین پیامِ هر دستور
+HINTS = {
+    "شروع": "قدم بعدی: «آموزش» — ۶ درس کوتاه",
+    "منو": "هر بخش عددش را بفرست تا باز شود",
+    "راهنما": "دستورها بدون / — فقط کلمه را بفرست",
+    "وضعیت": "روزی یک نگاه به اینجا بینداز",
+    "پایگاه": "کارخانه فودکوینت را ارتقا بده — «ارتقا کارخانه»",
+    "ارتقا": "سطح بالاتر = تولید بیشتر",
+    "سرباز": "حداقل ۳ سرباز برای باس لازم است",
+    "جنگ": "برنده منابع می‌قاپد؛ باخته محافظت می‌گیرد",
+    "غارت": "هدف: بازیکن ضعیف‌تر از خودت، بی‌سپر",
+    "باس": "آسیب‌برتر اول جایزه‌ی بیشتر می‌برد",
+    "اینفکت": "باسِ سقوط‌کرده را اسیر می‌کنی — بعدش مبادله‌پذیر است",
+    "معامله": "ریپلای روی طرف مقابل + «معامله» — بعد «گذاشتن»",
+    "گذاشتن": "مثال: «گذاشتن فودکوین ۵۰۰» یا «گذاشتن برگر ۵»",
+    "تایید": "بعد از تایید هر طرف، دیگر ادیت نمی‌شود",
+    "درآوردن": "چیز را قبل از تایید برمی‌گردانی",
+    "لغو": "«لغو معامله» = برگشت همه‌چیز",
+    "فودکوین": "شیر رایگان هر ۱۰ دقیقه — قدردان باش!",
+    "پیشنهاد": "کوچیار وضعیتِ تو را می‌بیند و راهنمایی می‌کند",
+    "پک": "هر پک ۲ بار در روز باز می‌شود",
+    "پرداخت": "باندل‌ها از ۳۰۰ هزار تومان — پی‌وی‌پی امن",
+    "پاس": "پاس فعال = شانس کمیابی یک کوچولو بیشتر",
+    "آموزش": "درس‌ها را به ترتیب بخوان — ۱ تا ۶",
+    "مستعمره": "مستعمره = مالیات منابعِ بازیکن دیگر",
+    "روزانه": "هر روز سر بزن — استریک = جایزه‌ی بیشتر",
+    "رفرال": "دوستان را بیاور، فودکوین بگیر",
+    "بازار": "قیمت‌ها با خریدوفروش همه بالا و پایین می‌روند",
+    "رتبه": "رقابت سالم — لیدربرد زنده",
+    "کارت": "کارت شناسایی اختصاصی تو",
+}
+
+
 async def _send(m: Message, text: str, feed=False, kb=None):
     cid = m.chat.id
     if feed and cid in _feed:
@@ -48,6 +81,15 @@ async def _send(m: Message, text: str, feed=False, kb=None):
                 return
             except Exception:
                 pass
+    hint_cmd = getattr(m, "_fw_cmd", "")
+    if hint_cmd and not getattr(m, "_fw_hinted", False):
+        h = HINTS.get(hint_cmd)
+        if h:
+            text = f"{text}\n\n💡 {h}"
+        try:
+            m._fw_hinted = True
+        except Exception:
+            pass
     r = await m.answer(text, reply_markup=kb)
     if feed:
         _feed[cid] = (r.message_id, _time.time())
@@ -123,6 +165,44 @@ def _parse_qty(a: str, b2: str):
     if b2 and b2.translate(_DIG).isdigit():
         return a, int(b2.translate(_DIG))
     return f"{a} {b2}".strip(), 1
+
+
+async def cmd_hint(m):
+    """🧠 کوچیار هوشمند — بر اساس وضعیتِ همین لحظه‌ات نصیحت می‌دهد."""
+    uid = m.from_user.id
+    p = player.get(uid)
+    if not p:
+        await _send(m, "🎮 هنوز بازیکن نشده‌ای — در گروه «شروع» بزن.")
+        return
+    fc = p["fc"] or 0
+    army_n = army.army_size(uid)
+    tips = []
+    if fc < 300:
+        tips.append("🪙 گرسنه‌ی فودکوینی؟ بگو <b>فودکوین</b> — شیر رایگان هر ۱۰ دقیقه!")
+    if p["level"] < 3:
+        tips.append("📚 هنوز تازه‌واردی — «آموزش» را بخوان؛ نکته‌های طلایی دارد.")
+    if army_n < 3:
+        tips.append(f"🪖 ارمشات فقط {army_n} نفر است (حداقل ۳ تا برای باس) — «سرباز» ببین و بساز.")
+    w = boss.active(m.chat.id)
+    if w:
+        tips.append(f"🚨 همین حالا {boss.BOSSES[w['boss_id']]['emoji']} <b>{boss.BOSSES[w['boss_id']]['name']}</b> در کارخانه است — «باس» و حمله کن!")
+    if fc >= 350000:
+        tips.append("👑 ثروتمند! <b>صندوق نهایی فصل</b> منتظرت است — «خریدن صندوق نهایی»")
+    elif fc >= 110000:
+        tips.append("🔮 برای <b>صندوق اسطوره</b> کافی داری — «خریدن صندوق اسطوره»")
+    elif fc >= 30000:
+        tips.append("🟠 سرمایه‌ات به <b>پک افسانه</b> رسیده — «خریدن پک افسانه»")
+    elif fc >= 9000:
+        tips.append("🟣 برای <b>پک حماسی</b> کافی داری — «خریدن پک حماسی»")
+    elif fc >= 2500:
+        tips.append("📦 سرمایه‌ات برای <b>پک تازه‌کار</b> کافی است — «خریدن پک تازه‌کار»")
+    import trade as _tr
+    if _tr.my_trade(m.chat.id, uid)[0]:
+        tips.append("🔄 معامله‌ات باز است — یادت نرود «تایید» بزنی!")
+    if not tips:
+        tips.append("💪 همه‌چیز مرتب است! جنگ بزن، باس شکار کن، و با «وضعیت» رصد کن.")
+        tips.append("🔄 برای خریدوفروش امن با دوستت: ریپلای + «معامله»")
+    await _send(m, "🧠 <b>پیشنهاد کوچیار — مخصوص وضعیت تو:</b>\n\n" + "\n".join(tips[:4]))
 
 
 async def cmd_trade(m: Message, body: str):
@@ -556,7 +636,7 @@ async def cmd_open_pack(m: Message, ref: str):
 
 async def cmd_odds(m: Message, ref: str):
     pid = next((k for k, pk in PACKS.items() if ref in (k, pk["name"], pk["en"])), None)
-    await _send(m, packs.odds_text(pid) if pid else "📊 «شانس [نام پک]»")
+    await _send(m, packs.odds_text(pid, m.from_user.id) if pid else "📊 «شانس [نام پک]»")
 
 
 async def cmd_shop(m: Message):
@@ -928,6 +1008,15 @@ async def on_callback(c: CallbackQuery):
         return
     if action in texts_map:
         txt = texts_map[action]()
+        titles = {"me": "👤 پروفایل", "base": "🏠 پایگاه", "army": "🪖 ارتش", "inv": "🎒 انبار",
+                  "craft": "🛠 کارگاه", "boss": "👑 باس", "ally": "🤝 اتحاد", "market": "🔄 بازار",
+                  "top": "🏆 رتبه‌ی گروه", "topg": "🌍 رتبه‌ی جهانی", "daily": "🎁 روزانه",
+                  "help": "📖 راهنما", "packs": "📦 پک‌ها", "pass": "🎫 بتل‌پس",
+                  "shop": "🛒 فروشگاه", "store": "💰 خرید فودکوین و پاس",
+                  "cosmetic": "🎨 ظاهر", "hub": "🧭 هاب فرماندهی", "back": "🧭 هاب فرماندهی"}
+        t = titles.get(action)
+        if t and not txt.startswith(t):
+            txt = f"{t}\n{'─' * 18}\n{txt}"
         kb = ui.hub_kb(uid) if action in ("hub", "back") else (
             ui.sub_kb(uid, [("🌍 جهانی", "topg")]) if action == "top" else ui.sub_kb(uid, []))
         try:
@@ -1000,7 +1089,8 @@ CMD_WORDS = frozenset((
     "ارتش", "جذب", "جنگ", "باس", "شیفت", "گشت", "اینفکت", "اینفکتد", "هجوم",
     "شخصیت", "ساخت", "تفریخ", "انبار", "تجهیز", "پک", "بازکردن", "شانس",
     "فروشگاه", "خریدن", "خرید", "فروش", "بفروش", "برداشتن", "قیمت", "قیمت‌ها",
-    "معامله", "گذاشتن", "درآوردن", "تایید",
+    "معامله", "گذاشتن", "درآوردن", "تایید", "فودکوین", "fc",
+    "پیشنهاد", "نصیحت", "چیکارکنم",
     "پاس", "جایزه", "سفارشی", "بپوش", "دربیاور", "سفارش", "لغو", "رسید",
     "رتبه", "مدیر", "اتحاد", "تأسیس", "عضویت", "ترک", "کمک", "خیانت",
     "راهنما", "آموزش",
@@ -1027,6 +1117,16 @@ UNGATED = frozenset((
 
 
 CMD_GLOBAL_CD = 10   # ⏱ فاصله‌ی حداقلی بین دستورهای هر بازیکن — ضداسپم؛ گروه شلوغ نشود
+SPAM_STRIKES = 8          # ⚠️ ۸ برخورد با گیت در ۶۰ ثانیه = اسپمر
+SPAM_SILENCE_S = 180      # 🤐 سکوت موقت ۳ دقیقه
+
+
+def _silenced_until(uid: int) -> float:
+    row = db.db().one("SELECT v FROM kv WHERE k=?", (f"silence:{uid}",))
+    try:
+        return float(row["v"]) if row else 0.0
+    except Exception:
+        return 0.0
 
 
 class ChannelGate(BaseMiddleware):
@@ -1059,8 +1159,25 @@ class ChannelGate(BaseMiddleware):
             return await handler(event, data)  # گفتگوی عادی → آزاد
         if word in UNGATED:
             return await handler(event, data)
+        # 🤐 فایروال: اسپمر ساکت‌شده فقط ری‌اکشن می‌گیرد — صفر پیام
+        if _silenced_until(u.id) > _time.time():
+            try:
+                await media.react(event.bot, event.chat.id, event.message_id, "🤐")
+            except Exception:
+                pass
+            return
         # ⏱ کول‌داون سراسری ۱۰ ثانیه — بی‌صدا؛ فقط ری‌اکشن ⏳
         if not perf.allow(("cmdcd", u.id), 1, CMD_GLOBAL_CD):
+            strikes = perf.allow(("spam", u.id), SPAM_STRIKES, 60)
+            if not strikes:                       # 🚨 سیلِ دستور — تیپیکال اسپمر
+                db.db().ex("INSERT OR REPLACE INTO kv(k, v) VALUES(?,?)",
+                           (f"silence:{u.id}", str(_time.time() + SPAM_SILENCE_S)))
+                try:
+                    await event.answer("🤐 آرام! ۳ دقیقه دستورها برایت بسته است — ضداسپم.")
+                    await media.react(event.bot, event.chat.id, event.message_id, "👮")
+                except Exception:
+                    pass
+                return
             try:
                 await media.react(event.bot, event.chat.id, event.message_id, "⏳")
             except Exception:
@@ -1115,6 +1232,10 @@ async def on_text(m: Message):
     perf.STATS.commands += 1
     parts = body.split()
     cmd = parts[0]
+    try:
+        m._fw_cmd = cmd          # 💡 برای hint کوتاه در _send
+    except Exception:
+        pass
     p0 = _reg(m)
     if p0["banned"] and cmd != "مدیر":
         return
@@ -1142,6 +1263,10 @@ async def on_text(m: Message):
         await cmd_start(m)
     elif cmd in ("رفرال", "دعوت"):
         await cmd_referral(m)
+    elif cmd in ("فودکوین", "fc", "FC"):
+        await _send(m, player.faucet(m.from_user.id)[1])
+    elif cmd in ("پیشنهاد", "نصیحت", "چیکارکنم"):
+        await cmd_hint(m)
     elif cmd == "معامله":
         await cmd_trade(m, rest)
     elif cmd == "گذاشتن":

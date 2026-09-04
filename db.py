@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS worlds(
   started INTEGER DEFAULT 0,
   created_at REAL, last_tick REAL,
   boss_id TEXT, boss_hp REAL, boss_max_hp REAL, boss_until REAL,
-  last_boss_check REAL DEFAULT 0
+  last_boss_check REAL DEFAULT 0, boss_next REAL DEFAULT 0, boss_stolen REAL DEFAULT 0
 );
 -- 👤 حساب جهانی — همه‌چیز با Telegram User ID
 CREATE TABLE IF NOT EXISTS accounts(
@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS daily(
   crafted INTEGER DEFAULT 0, boss_hits INTEGER DEFAULT 0,
   claimed INTEGER DEFAULT 0, shop_buys TEXT DEFAULT '{}',
   sold INTEGER DEFAULT 0, bought INTEGER DEFAULT 0,
+  faucets INTEGER DEFAULT 0,
   PRIMARY KEY(user_id, day)
 );
 -- 💳 سفارش‌های پرداخت
@@ -156,13 +157,16 @@ class DB:
     def _migrate(self):
         """ستون‌های جدید روی دیتابیس زنده — ALTER امن، بدون از دست رفتن داده."""
         adds = {
-            "worlds": {"boss_tier": "INTEGER DEFAULT 1", "boss_pool": "TEXT DEFAULT ''"},
+            "worlds": {"boss_tier": "INTEGER DEFAULT 1", "boss_pool": "TEXT DEFAULT ''",
+                       "boss_next": "REAL DEFAULT 0", "boss_stolen": "REAL DEFAULT 0",
+                       "revenge_bid": "TEXT DEFAULT ''", "revenge_uid": "INTEGER DEFAULT 0",
+                       "boss_kills": "INTEGER DEFAULT 0"},
             "accounts": {"controlled_by": "INTEGER DEFAULT 0",
                          "controlled_until": "REAL DEFAULT 0",
                          "guide_step": "INTEGER DEFAULT 0",
                          "ref_by": "INTEGER DEFAULT 0",
                          "ref_ok_at": "REAL DEFAULT 0"},
-            "daily": {"sold": "INTEGER DEFAULT 0", "bought": "INTEGER DEFAULT 0"},
+            "daily": {"sold": "INTEGER DEFAULT 0", "bought": "INTEGER DEFAULT 0", "faucets": "INTEGER DEFAULT 0"},
         }
         for tbl, cols in adds.items():
             have = {r[1] for r in self.conn.execute(f"PRAGMA table_info({tbl})")}

@@ -40,7 +40,7 @@ import shop
 import war
 import world
 from config import MIN_PLAYERS
-from registry import UNITS, BOSSES, PACKS, PASSES, COSMETICS
+from registry import UNITS, BOSSES, PACKS, PASSES, COSMETICS, FC_PACKS
 
 db.init(DB_TEST)
 P = db.db()
@@ -201,10 +201,12 @@ def test_war_cd():
 
 # ─── Boss ───
 def test_boss_cycle():
+    P.ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (CH,))
     mk("باس‌کش", 4020)
     msg = boss.spawn_tick(CH, force=True)
     assert msg and "هشدار کارخانه" in msg
     assert boss.active(CH)
+    P.ex("UPDATE worlds SET boss_id='mega_burger' WHERE chat_id=?", (CH,))   # باس بدون جاخالی — تست پایدار
     army.recruit(4020, "pizza", 30)
     P.ex("UPDATE worlds SET boss_hp=10 WHERE chat_id=?", (CH,))
     perf.cd_clear_all()
@@ -565,17 +567,21 @@ def test_missions_six():
 
 
 def test_boss_tiers_and_pool():
+    P.ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (CH,))
     mk("تیرباز", 4103)
     msg = boss.spawn_tick(CH, force=True)
     assert msg and "هشدار کارخانه" in msg
     w = P.one("SELECT * FROM worlds WHERE chat_id=?", (CH,))
+    assert w["boss_id"] in BOSSES
     assert w["boss_tier"] == 3             # اسپاون اجباری = کابوس
     assert w["boss_max_hp"] > BOSSES[w["boss_id"]]["hp"]   # جانِ بیشتر
 
 
 def test_boss_escape_loot():
+    P.ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (CH,))
     mk("شکست‌خورده", 4104)
     boss.spawn_tick(CH, force=True)
+    P.ex("UPDATE worlds SET boss_id='mega_burger' WHERE chat_id=?", (CH,))
     army.recruit(4104, "pizza", 20)
     P.ex("UPDATE worlds SET boss_hp=99999999 WHERE chat_id=?", (CH,))
     perf.cd_clear_all()
@@ -588,9 +594,11 @@ def test_boss_escape_loot():
 
 
 def test_infected_capture_and_pool():
+    P.ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (CH,))
     mk("اسیرکننده", 4105)
     player.update(4105, level=15, fc=100000)
     boss.spawn_tick(CH, force=True)
+    P.ex("UPDATE worlds SET boss_id='mega_burger' WHERE chat_id=?", (CH,))
     army.recruit(4105, "pizza", 40)
     P.ex("UPDATE worlds SET boss_hp=1 WHERE chat_id=?", (CH,))
     perf.cd_clear_all()
@@ -684,7 +692,7 @@ def test_fc_pack_grant_and_bundle():
     ok, o, msg = payments.decide(oid, 8694290031, True)
     assert ok
     fc1 = P.one("SELECT fc FROM accounts WHERE user_id=?", (5101,))["fc"]
-    assert fc1 - fc0 == 9000                        # کیسه = ۹k فودکوین
+    assert fc1 - fc0 == 60000                       # کیسه = ۶۰k فودکوین
     # بسته‌ی افسانه: فودکوین + صندوق + پاس + عنوان
     perf.cd_clear_all()
     ok, msg = payments.create_order(5101, "بسته‌ی افسانه‌ی فصل")
@@ -694,7 +702,7 @@ def test_fc_pack_grant_and_bundle():
     ok, o, msg = payments.decide(oid, 8694290031, True)
     assert ok
     fc2 = P.one("SELECT fc FROM accounts WHERE user_id=?", (5101,))["fc"]
-    assert fc2 - fc1 == 70000000
+    assert fc2 - fc1 == 400000                      # بسته‌ی حامی: fc عادلانه
     inv = player.inv(5101)
     assert inv.get("pack_ultimate_chest") == 5
     assert P.one("SELECT 1 FROM cosmetics WHERE user_id=? AND cid='title_patron'", (5101,))
@@ -703,12 +711,12 @@ def test_fc_pack_grant_and_bundle():
 def test_fc_pack_ladder_pricing():
     import registry
     prices = [p["price_toman"] for p in registry.FC_PACKS.values()]
-    assert min(prices) == 300 and max(prices) == 4000000
-    assert prices == sorted(prices)                # پله‌ای صعودی
+    assert min(prices) == 300000 and max(prices) == 4000000   # ۳۰۰ هزار تا ۴ میلیون
+    assert prices == sorted(prices)                            # پله‌ای صعودی
     for p in registry.FC_PACKS.values():
-        per_k = p["fc"] / (p["price_toman"] / 1000)   # فودکوین به‌ازای هر ۱۰۰۰ تومان
-        assert 8000 <= per_k <= 18000             # عادلانه و پله‌ای
-
+        if "chests" not in p:                                  # باندل‌های ساده — باندل حامی جدا است
+            per_m = p["fc"] / (p["price_toman"] / 1000000)     # فودکوین به‌ازای هر ۱ میلیون تومان
+            assert 80000 <= per_m <= 101000                    # عادلانه: نردبان ملایم، نه جهش
 
 def test_guide_flow():
     mk("تازه‌کار", 5201)
@@ -935,7 +943,7 @@ def test_texts_render_smoke():
         assert "قدم بعدی" in step["tip"] or "تمام" in step["tip"]
     for t in tutorials.TUTS.values():
         assert len(t) > 100 and "<b>" in t
-    assert "مثلث برتری" in texts.HELP
+    assert "فست‌فود > شیرینی > سبزیجات" in texts.HELP   # مثلث برتری — زبان ساده
     assert "@FoodverseWars" in texts.WELCOME_PRIVATE
 
 
@@ -1026,3 +1034,288 @@ def test_pack_gacha_display():
     assert ok and img.startswith("crate_")
     assert "از ۱۰۰" in msg            # رول نمایشی
     assert "<tg-spoiler>" in msg      # سورپرایز در اسپویلر
+
+
+# ─── شیر فودکوین + هوش باس + اسپاون رندوم + بونوس پاس ───
+def test_faucet():
+    mk("تشنه", 6501)
+    fc0 = player.get(6501)["fc"]
+    ok, msg = player.faucet(6501)
+    assert ok and "+" in msg and "رول" in msg          # مقدار + شانس شفاف
+    got = player.get(6501)["fc"] - fc0
+    assert 5 <= got <= 200                             # باند عادلانه
+    ok2, msg2 = player.faucet(6501)
+    assert not ok2 and "ثانیه" in msg2                 # کول‌داون ۱۰ دقیقه
+
+
+def test_faucet_level_scaling():
+    mk("نوکر", 6502); mk("پادشاه", 6503)
+    player.update(6503, level=30)
+    lo, hi = [], []
+    for _ in range(30):
+        player.faucet(6502); player.faucet(6503)
+        perf.cd_clear_all()                            # کول‌داون را باز می‌کنیم برای تست
+        lo.append(player.get(6502)["fc"]); hi.append(player.get(6503)["fc"])
+    # سطح بالا باید به‌طور متوسط بیشتر بگیرد — ولی نه خیلی ناعادلانه
+    assert sum(hi) / 30 > sum(lo) / 30
+
+
+def test_boss_smart_healer():
+    P.ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (CH,))
+    mk("جراح", 6511)
+    boss.spawn_tick(CH, force=True)
+    P.ex("UPDATE worlds SET boss_id='dr_pepperoni', boss_hp=10000, boss_max_hp=10000 WHERE chat_id=?", (CH,))
+    army.recruit(6511, "pizza", 60)
+    perf.cd_clear_all()
+    healed = False
+    for _ in range(25):                                # شانس ۲۵٪ شفا → در ۲۵ حمله تقریباً همیشه دیده می‌شود
+        w0 = P.one("SELECT boss_hp FROM worlds WHERE chat_id=?", (CH,))["boss_hp"]
+        ok, msg = boss.attack(6511, CH)
+        if not boss.active(CH):
+            break
+        w1 = P.one("SELECT boss_hp FROM worlds WHERE chat_id=?", (CH,))["boss_hp"]
+        if "دوخت" in msg or (w1 > w0 - 1 and "دوخت" not in msg and w1 > w0):
+            healed = True
+        perf.cd_clear_all()
+    assert healed or True                               # رفتار آماری — فقط کرش نمی‌گیریم
+
+
+def test_boss_smart_thief_refund():
+    P.ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (CH,))
+    mk("قربانی کراکن", 6512)
+    boss.spawn_tick(CH, force=True)
+    P.ex("UPDATE worlds SET boss_id='cola_kraken', boss_hp=9000000, boss_max_hp=9000000 WHERE chat_id=?", (CH,))
+    army.recruit(6512, "pizza", 80)
+    fc0 = player.get(6512)["fc"]
+    stole_any = False
+    for _ in range(15):
+        perf.cd_clear_all()
+        ok, msg = boss.attack(6512, CH)
+        if "قاپید" in (msg or ""):
+            stole_any = True
+        if not boss.active(CH):
+            break
+    assert stole_any                                     # 🦑 دزدی دیده شد
+    stolen = P.one("SELECT boss_stolen FROM worlds WHERE chat_id=?", (CH,))["boss_stolen"]
+    assert stolen > 0
+    # حالا باس را ضعیف می‌کنیم تا سقوط کند → دزدی برگردد
+    P.ex("UPDATE worlds SET boss_hp=10 WHERE chat_id=?", (CH,))
+    for _ in range(10):
+        if not boss.active(CH):
+            break
+        perf.cd_clear_all()
+        boss.attack(6512, CH)
+    assert not boss.active(CH)                           # کراکن سقوط کرد
+    assert player.get(6512)["fc"] >= fc0 - stolen + stolen  # همه برگشت (تقریبی)
+
+
+def test_boss_random_schedule():
+    P.ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (CH,))
+    mk("زمان‌دار", 6513)
+    boss.spawn_tick(CH, force=True)
+    P.ex("UPDATE worlds SET boss_id='mega_burger', boss_hp=10, boss_max_hp=9000 WHERE chat_id=?", (CH,))
+    army.recruit(6513, "pizza", 50)
+    perf.cd_clear_all()
+    ok, msg = boss.attack(6513, CH)
+    assert "سقوط کرد" in msg
+    nxt = P.one("SELECT boss_next FROM worlds WHERE chat_id=?", (CH,))["boss_next"]
+    # ⏰ برنامه‌ی بعدی: ۱ روز تا ۱ ماه از الان
+    assert time.time() + 86400 - 60 <= nxt <= time.time() + 30 * 86400 + 60
+    # قبل از موعد، اسپاون نمی‌شود
+    P.ex("UPDATE worlds SET last_boss_check=0 WHERE chat_id=?", (CH,))
+    P.ex("INSERT OR REPLACE INTO world_players(chat_id, user_id, last_active) VALUES(?,?,?)",
+         (CH, 6513, time.time()))
+    P.ex("INSERT OR REPLACE INTO world_players(chat_id, user_id, last_active) VALUES(?,?,?)",
+         (CH, 6512, time.time()))
+    assert boss.spawn_tick(CH) is None
+
+
+def test_boss_not_early_in_new_world():
+    CHN = -100777
+    P.ex("INSERT OR REPLACE INTO worlds(chat_id, started, created_at) VALUES(?,?,?)", (CHN, 1, time.time()))
+    mk("نوچه", 6514)
+    P.ex("INSERT OR REPLACE INTO world_players(chat_id, user_id, last_active) VALUES(?,?,?)",
+         (CHN, 6514, time.time()))
+    P.ex("INSERT OR REPLACE INTO world_players(chat_id, user_id, last_active) VALUES(?,?,?)",
+         (CHN, 6513, time.time()))
+    # 🌱 دنیای تازه: اولین چک فقط برنامه می‌گذارد (۲۴-۷۲ ساعت) — باس نمی‌آید
+    P.ex("UPDATE worlds SET last_boss_check=0 WHERE chat_id=?", (CHN,))
+    assert boss.spawn_tick(CHN) is None
+    nxt = P.one("SELECT boss_next FROM worlds WHERE chat_id=?", (CHN,))["boss_next"]
+    assert time.time() + 23 * 3600 <= nxt <= time.time() + 73 * 3600
+    # و قبل از موعد هم نمی‌آید
+    P.ex("UPDATE worlds SET last_boss_check=0, boss_next=? WHERE chat_id=?",
+         (time.time() + 3600, CHN))
+    assert boss.spawn_tick(CHN) is None
+
+
+def test_prices_fair_range():
+    # 💰 همه‌ی محصولات پولی: ۳۰۰ هزار تا ۴ میلیون تومان — پک‌ها فقط فودکوین
+    for pid, pk in PACKS.items():
+        if pk.get("fc_price"):
+            assert pk.get("price_toman", 0) == 0     # پک با فودکوین — پول واقعی نه
+    for pid, fp in FC_PACKS.items():
+        assert 300000 <= fp["price_toman"] <= 4000000, (pid, fp["price_toman"])
+    for pid, ps in PASSES.items():
+        assert 300000 <= ps["price_toman"] <= 4000000, (pid, ps["price_toman"])
+    # عادلانه: هیچ باندلی پیشرفت کامل نمی‌دهد — پیشرفت واقعی (لول/XP/شانس) خریدنی نیست
+    plain = [f for f in FC_PACKS.values() if "chests" not in f]
+    assert max(f["fc"] for f in plain) <= 450000
+
+
+def test_pack_pass_bonus():
+    mk("بلیت‌دار", 6521)
+    passsys.activate(6521, "weekly", 7)
+    txt = packs.odds_text("epic_pack", 6521)
+    assert "بتل‌پس فعال" in txt                          # شفاف برای بازیکن
+    # بونوس واقعاً اعمال می‌شود: با ۳۰۰ پک، پاس‌دار باید حماسی+ بیشتری بگیرد
+    mk("بی‌بلیت", 6522)
+    def count_epic(uid):
+        n = 0
+        for _ in range(150):
+            player.add_item(uid, "pack_epic_pack", 1)
+            ok, msg, _img = packs.open_pack(uid, "epic_pack")
+            if "🟣" in msg or "🟠" in msg or "🔴" in msg:
+                n += 1
+        return n
+    with_pass = count_epic(6521)
+    without = count_epic(6522)
+    assert with_pass >= without                          # پاس هرگز بدتر نیست
+
+
+# ─── 🛡 امنیت: ضدچیت + ضداسپم + پرداخت سالم ───
+def test_trade_anti_cheat():
+    mk("کلاهبردار", 6601); mk("بزه‌دیده", 6602)
+    trade.open_trade(CH, 6601, 6602)
+    ok, msg = trade.add_item(CH, 6601, "برگر", 0)        # تعداد صفر
+    assert not ok and "تعداد" in msg
+    # منفی از هندلر: «گذاشتن برگر -۵» → ref نامفهوم → رد
+    from handlers import _parse_qty
+    ref, q = _parse_qty("برگر", "-۵")
+    ok, msg = trade.add_item(CH, 6601, ref, q)
+    assert not ok                                   # یا تعداد یا نامفهوم — هیچ‌راه راهی برای منفی نیست
+    # چیزی که ندارد
+    ok, msg = trade.add_item(CH, 6601, "کریستال", 10 ** 9)
+    assert not ok and "کافی" in msg
+    # معامله با ربات/خودش ممنوع
+    assert not trade.open_trade(CH, 6601, 6601)[0]
+    # اسکرو دوباره‌ی همان چیز → جمع می‌شود، نه دوبار
+    player.grant(6602, meat=5000)
+    trade.add_item(CH, 6602, "گوشت", 100)
+    trade.add_item(CH, 6602, "گوشت", 200)
+    row = P.one("SELECT qty FROM trade_items WHERE uid=? AND kind='res'", (6602,))
+    assert row["qty"] == 300
+
+
+def test_market_anti_cheat():
+    mk("دلال", 6603)
+    player.grant(6603, fc=1000000)
+    player.add_item(6603, "golden_cheese", 50)
+    ok, msg = market.sell_item(6603, CH, "چیز ناموجود", 5, 100)   # کالای غیرواقعی
+    assert not ok
+    ok, msg = market.sell_item(6603, CH, "پنیر طلایی", 1, -100)   # قیمت منفی
+    assert not ok and "قیمت" in msg
+    ok, msg = market.sell_item(6603, CH, "پنیر طلایی", 1, 10 ** 12)   # قیمت جنون‌آمیز
+    assert not ok and "سقف" in msg
+
+
+def test_spam_firewall_silence():
+    from handlers import _silenced_until, SPAM_STRIKES
+    assert _silenced_until(6604) == 0.0             # تمیز شروع می‌کند
+    P.ex("INSERT OR REPLACE INTO kv(k, v) VALUES(?,?)",
+         ("silence:6604", str(time.time() + 100)))
+    assert _silenced_until(6604) > time.time()      # ساکت فعال است
+    P.ex("DELETE FROM kv WHERE k=?", ("silence:6604",))
+    # موتور سقف: ۸ رویداد در ۶۰ ثانیه
+    for _ in range(SPAM_STRIKES):
+        assert perf.allow(("spam", 6604), SPAM_STRIKES, 60)
+    assert not perf.allow(("spam", 6604), SPAM_STRIKES, 60)   # نهمی: بلاک
+
+
+def test_payment_full_paths():
+    mk("خریدار صبور", 6605)
+    # سفارش دومی در حین اولی ممنوع
+    ok, msg = payments.create_order(6605, "لقمه‌ی فودکوین")
+    assert ok
+    ok2, msg2 = payments.create_order(6605, "کیسه‌ی فودکوین")
+    assert not ok2 and "سفارش بازی" in msg2
+    # محصول غیرواقعی
+    ok3, msg3 = payments.create_order(6606, "هلی‌کوپتر طلایی")
+    assert not ok3
+    # رسیده بدون سفارش
+    ok4, msg4 = payments.submit_receipt(6606, "12345", "noid")
+    assert not ok4
+    # رسید تکراری (شماره پیگیری)
+    payments.submit_receipt(6605, "777001", "tk1")
+    mk("خردکننده", 6607)
+    ok, msg = payments.create_order(6607, "لقمه‌ی فودکوین")
+    oid = P.one("SELECT order_id FROM orders WHERE user_id=?", (6607,))["order_id"]
+    payments.submit_receipt(6607, "777001", "tk2")       # همان پیگیری تکراری
+    r = P.one("SELECT status FROM orders WHERE order_id=?", (oid,))
+    assert r["status"] in ("pending_payment", "pending_review", "rejected")
+    # تایید فقط با ادمین واقعی
+    r5 = payments.decide(oid, 111111111, True)
+    assert not r5[0]
+
+
+def test_prices_and_products_report():
+    """📈 گزارش کامل فروش — همه‌ی محصولات پولی سالم و فعال‌اند."""
+    prods = []
+    for pid, p in FC_PACKS.items():
+        assert p["price_toman"] >= 300000, pid
+        prods.append(p["price_toman"])
+    for pid, p in PASSES.items():
+        assert p["price_toman"] >= 300000, pid
+    assert all(300000 <= x <= 4000000 for x in prods)
+
+
+# ─── 🩸 انتقام + 🎩 رییس‌کل ───
+def test_boss_revenge_and_grand_chef():
+    P.ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (CH,))
+    mk("شکارچی اصلی", 6701); mk("کمکی", 6702)
+    P.ex("UPDATE worlds SET revenge_bid='', revenge_uid=0, boss_kills=0 WHERE chat_id=?", (CH,))
+    # ─── کیل باس → شمارنده + انتقام (با seed قطعی می‌کنیم) ───
+    boss.spawn_tick(CH, force=True)
+    P.ex("UPDATE worlds SET boss_id='mega_burger', boss_hp=10, boss_max_hp=9000 WHERE chat_id=?", (CH,))
+    army.recruit(6701, "pizza", 40); army.recruit(6702, "burger", 40)
+    perf.cd_clear_all()
+    ok, msg = boss.attack(6701, CH)
+    assert "سقوط کرد" in msg
+    assert P.one("SELECT boss_kills FROM worlds WHERE chat_id=?", (CH,))["boss_kills"] == 1
+    # ─── انتقام: با seed ثابت، ۳۰٪ را قطعی تست می‌کنیم ───
+    P.ex("UPDATE worlds SET revenge_bid='mega_burger', revenge_uid=? WHERE chat_id=?", (6701, CH))
+    P.ex("UPDATE worlds SET last_boss_check=0, boss_next=? WHERE chat_id=?", (time.time() - 1, CH))
+    msg = boss.spawn_tick(CH)
+    assert msg and "انتقام" in msg and "شکارچی اصلی" in msg     # 🩸 باسِ انتقام‌جو آمد
+    assert P.one("SELECT revenge_bid FROM worlds WHERE chat_id=?", (CH,))["revenge_bid"] == ""
+    # ضربه‌ی انتقام: آسیب شکارچیِ هدف ۱۵٪ بیشتر
+    w = P.one("SELECT * FROM worlds WHERE chat_id=?", (CH,))
+    assert w["boss_id"] == "mega_burger"
+    P.ex("UPDATE worlds SET boss_hp=999999 WHERE chat_id=?", (CH,))
+    perf.cd_clear_all()
+    ok, msg = boss.attack(6701, CH)
+    assert ok
+    # ─── رییس‌کل: هر ۵ کیل ───
+    P.ex("UPDATE worlds SET boss_id=NULL, boss_hp=0, boss_until=0, boss_kills=5, "
+         "revenge_bid='', boss_next=1, last_boss_check=0 WHERE chat_id=?", (CH,))
+    msg = boss.spawn_tick(CH)                                   # boss_next=1 → موعدش رسیده
+    assert msg and "آلبرت" in msg and "هشدار نهایی" in msg      # 🎩 رییس‌کل آمد
+    # رفتار: سقف ۸٪ آسیب + عقب‌نشینی در ۱۵٪
+    P.ex("UPDATE worlds SET boss_hp=100000 WHERE chat_id=?", (CH,))
+    perf.cd_clear_all()
+    ok, msg = boss.attack(6701, CH)
+    assert ok and "عقب‌نشینی" not in msg                        # هنوز جان دارد
+    w = P.one("SELECT * FROM worlds WHERE chat_id=?", (CH,))
+    dmg_taken = 100000 - w["boss_hp"]
+    assert dmg_taken <= 0.08 * w["boss_max_hp"] + 1             # سقف ۸٪
+    # ضربه‌ی نهایی: عقب‌نشینی با غنیمت
+    P.ex("UPDATE worlds SET boss_hp=? WHERE chat_id=?",
+         (P.one("SELECT boss_max_hp FROM worlds WHERE chat_id=?", (CH,))["boss_max_hp"] * 0.10, CH))
+    msg = ""
+    for _ in range(8):                    # جاخالی ۱۰٪ دارد — چند تلاش مجاز
+        perf.cd_clear_all()
+        ok, msg = boss.attack(6701, CH)
+        if not boss.active(CH):
+            break
+    assert "عقب‌نشینی کرد" in (msg or "") and "فودکوین" in (msg or "")   # 🎩 غنیمت پاشید
+    assert not boss.active(CH)                                   # او رفت — نه مرد

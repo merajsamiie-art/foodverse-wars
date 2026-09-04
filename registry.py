@@ -74,6 +74,11 @@ ITEMS = {
     "toy_crown":     dict(name="تاج اسباب‌بازی", emoji="🎩", kind="material", rarity="legendary",
                           desc="قطره‌ی مگا برگر"),
     # تخم لازاگنی‌زیلا
+    "noodle_scroll": dict(name="طومار نودل",     emoji="📜", kind="material", rarity="epic",
+                          desc="طومار مخفی نودل نینجا — رمز ضربه‌ی برنده در آن است."),
+    "pepper_vial":   dict(name="شیشه‌ی فلفل",   emoji="🧪", kind="booster", rarity="rare",
+                          desc="فلفل دکتر پپرونی — دوبار قوی‌تر از سس معمولی.",
+                          effect="boss_dmg", val=0.30, use="auto"),
     "lasagna_egg":   dict(name="تخم لازاگنی‌زیلا", emoji="🥚", kind="material", rarity="mythic",
                           desc="از آن واحد افسانه‌ای متولد می‌شود"),
 }
@@ -100,17 +105,36 @@ RECIPES = {
 # ─── 👑 باس‌ها ───
 BOSSES = {
     "mega_burger": dict(name="مگا برگر", en="MEGA BURGER", emoji="🍔", ctype="boss", rarity="legendary",
-                        hp=9000, atk=60, resist=0.15,
+                        hp=9000, atk=60, resist=0.15, ai="berserk",
                         lore="برگری که خودش را خورد تا بزرگ شود.",
                         loot=dict(fc=(500, 900), drops=["toy_crown", "golden_cheese"])),
     "meow_king":   dict(name="میو کینگ", en="MEOW KING", emoji="😼", ctype="boss", rarity="legendary",
-                        hp=12000, atk=75, resist=0.20, dodge=0.15,
+                        hp=12000, atk=75, resist=0.20, dodge=0.15, ai="tricky",
                         lore="پادشاه گربه‌ها. سه زندگی دارد؛ همه‌اش مال شماست.",
                         loot=dict(fc=(800, 1400), drops=["golden_cheese", "crown_meow"])),
     "lasagnazilla": dict(name="لازاگنی‌زیلا", en="LASAGNAZILLA", emoji="🦖", ctype="boss", rarity="mythic",
-                         hp=18000, atk=95, resist=0.25,
+                         hp=18000, atk=95, resist=0.25, ai="swarm",
                          lore="لایه‌به‌لایه‌ی مرگ. با سس.",
                          loot=dict(fc=(1200, 2200), drops=["mega_meat", "lasagna_egg"])),
+    # 🆕 نسل جدید باس‌ها — هرکدام هوش و شخصیت خودشان را دارند
+    "dr_pepperoni": dict(name="دکتر پپرونی", en="DR. PEPPERONI", emoji="🥼", ctype="boss", rarity="legendary",
+                         hp=15000, atk=80, resist=0.20, ai="healer",
+                         lore="دانشمندی که در پیتزای آزمایشی‌اش رشد کرد. زخم‌هایش را می‌دوزد — با سس.",
+                         loot=dict(fc=(900, 1700), drops=["golden_cheese", "toy_crown"])),
+    "cola_kraken":  dict(name="کوکا کراکن", en="COLA KRAKEN", emoji="🦑", ctype="boss", rarity="mythic",
+                         hp=21000, atk=100, resist=0.25, ai="thief",
+                         lore="هشت بازوی گازدار از نوشیدنی گازدار. فودکوین‌هایت را می‌بلعد!",
+                         loot=dict(fc=(1500, 2800), drops=["lasagna_egg", "crown_meow"])),
+    "noodle_ninja": dict(name="نودل نینجا", en="NOODLE NINJA", emoji="🍜", ctype="boss", rarity="epic",
+                         hp=11000, atk=70, resist=0.15, dodge=0.30, ai="shadow",
+                         lore="در بخار رامن پنهان می‌شود. کاتانا‌اش از نودل خشک است.",
+                         loot=dict(fc=(600, 1200), drops=["golden_cheese", "noodle_scroll"])),
+    # 🎩 رییس‌کل — مثل آلبرت وسکر: فوق‌هوش، تقریباً شکست‌ناپذیر
+    "grand_chef": dict(name="آلبرت، آشپز بزرگ", en="ALBERT THE GRAND CHEF", emoji="🎩",
+                       ctype="boss", rarity="mythic",
+                       hp=150000, atk=250, resist=0.40, dodge=0.10, ai="ultimate",
+                       lore="آشپزی که طعم قدرت را چشید. او را نمی‌کُشی — فقط می‌توانی تأخیرش بیندازی.",
+                       loot=dict(fc=(8000, 15000), drops=["lasagna_egg", "crown_meow", "toy_crown"])),
 }
 
 # ─── 🪙 قیمت NPC منابع (خرید) ───
@@ -196,19 +220,19 @@ PACKS = {
     # 💰 پک‌های فروشگاه (تومان)
     "starter_pack": dict(name="پک تازه‌کار", en="Starter Pack", emoji="🟢", price_toman=0, fc_price=2500,
                          guaranteed=dict(fc=2500, meat=150, metal=80),
-                         pulls=3, odds=dict(common=0.70, rare=0.24, epic=0.05, legendary=0.01, mythic=0.0)),
+                         pulls=3, odds=dict(common=0.74, rare=0.215, epic=0.040, legendary=0.005, mythic=0.0)),
     "epic_pack": dict(name="پک حماسی", en="Epic Pack", emoji="🟣", price_toman=0, fc_price=9000,
                       guaranteed=dict(fc=8000, crystal=15),
-                      pulls=4, odds=dict(common=0.40, rare=0.34, epic=0.21, legendary=0.045, mythic=0.005)),
+                      pulls=4, odds=dict(common=0.46, rare=0.33, epic=0.175, legendary=0.030, mythic=0.003)),
     "legend_pack": dict(name="پک افسانه", en="Legend Pack", emoji="🟠", price_toman=0, fc_price=30000,
                         guaranteed=dict(fc=15000, crystal=30),
-                        pulls=5, odds=dict(common=0.28, rare=0.32, epic=0.28, legendary=0.10, mythic=0.02)),
+                        pulls=5, odds=dict(common=0.35, rare=0.32, epic=0.25, legendary=0.070, mythic=0.012)),
     "mythic_chest": dict(name="صندوق اسطوره", en="Mythic Chest", emoji="👑", price_toman=0, fc_price=110000,
                          guaranteed=dict(fc=25000, crystal=50),
-                         pulls=5, odds=dict(common=0.15, rare=0.30, epic=0.35, legendary=0.17, mythic=0.03)),
+                         pulls=5, odds=dict(common=0.24, rare=0.31, epic=0.32, legendary=0.110, mythic=0.020)),
     "ultimate_chest": dict(name="صندوق نهایی فصل", en="Ultimate Season Chest", emoji="🌌", price_toman=0, fc_price=350000,
                            guaranteed=dict(fc=40000, crystal=80),
-                           pulls=6, odds=dict(common=0.10, rare=0.25, epic=0.35, legendary=0.24, mythic=0.06)),
+                           pulls=6, odds=dict(common=0.16, rare=0.27, epic=0.34, legendary=0.19, mythic=0.04)),
 }
 
 # جدول قرعه بر اساس کمیابی: (کازمتیک یا آیتم بازی، وزن داخل تیر)
@@ -227,23 +251,23 @@ DUPLICATE_VALUE = dict(common=150, rare=400, epic=1200, legendary=3000, mythic=8
 # ═══════════ 💎 Battle Pass ═══════════
 FC_PACKS = {
     # کیسه‌های فودکوین — از یک لقمه تا یک امپراتوری 🪙
-    "fc_bite":    dict(name="لقمه‌ی فودکوین",   en="FC Bite",     emoji="🪙", price_toman=300,       fc=2500),
-    "fc_pouch":   dict(name="کیسه‌ی فودکوین",   en="FC Pouch",    emoji="💰", price_toman=1000,      fc=9000),
-    "fc_box":     dict(name="جعبه‌ی فودکوین",   en="FC Box",      emoji="🧰", price_toman=3000,      fc=30000),
-    "fc_safe":    dict(name="گاوصندوق فودکوین", en="FC Safe",     emoji="🔐", price_toman=10000,     fc=110000),
-    "fc_vault":   dict(name="خزانه‌ی فودکوین",  en="FC Vault",    emoji="🏦", price_toman=30000,     fc=350000),
-    "fc_palace":  dict(name="قصر فودکوین",      en="FC Palace",   emoji="🏛", price_toman=100000,    fc=1250000),
-    "fc_titan":   dict(name="غول فودکوین",      en="FC Titan",    emoji="🐉", price_toman=400000,    fc=5500000),
-    "fc_empire":  dict(name="امپراتوری فودکوین", en="FC Empire",  emoji="👑", price_toman=1000000,   fc=15000000),
+    "fc_bite":    dict(name="لقمه‌ی فودکوین",   en="FC Bite",     emoji="🪙", price_toman=300000,    fc=25000),
+    "fc_pouch":   dict(name="کیسه‌ی فودکوین",   en="FC Pouch",    emoji="💰", price_toman=700000,    fc=60000),
+    "fc_box":     dict(name="جعبه‌ی فودکوین",   en="FC Box",      emoji="🧰", price_toman=1200000,   fc=105000),
+    "fc_safe":    dict(name="گاوصندوق فودکوین", en="FC Safe",     emoji="🔐", price_toman=1800000,   fc=162000),
+    "fc_vault":   dict(name="خزانه‌ی فودکوین",  en="FC Vault",    emoji="🏦", price_toman=2400000,   fc=225000),
+    "fc_palace":  dict(name="قصر فودکوین",      en="FC Palace",   emoji="🏛", price_toman=3000000,   fc=288000),
+    "fc_titan":   dict(name="غول فودکوین",      en="FC Titan",    emoji="🐉", price_toman=3500000,   fc=343000),
+    "fc_empire":  dict(name="امپراتوری فودکوین", en="FC Empire",  emoji="👑", price_toman=4000000,   fc=400000),
     # بسته‌ی افسانه‌ی فصل — پرچم‌دار ۴ میلیون تومانی
     "legend_bundle": dict(name="بسته‌ی افسانه‌ی فصل", en="Legend Season Bundle", emoji="🌌",
-                          price_toman=4000000, fc=70000000, chests=5, pass_days=90, title="title_patron"),
+                          price_toman=4000000, fc=400000, chests=5, pass_days=90, title="title_patron"),
 }
 
 PASSES = {
-    "weekly":  dict(name="پاس هفتگی",  en="Weekly Pass",  emoji="🥉", price_toman=8000000,  days=7),
-    "monthly": dict(name="پاس ماهانه", en="Monthly Pass", emoji="🥈", price_toman=25000000, days=30),
-    "season":  dict(name="پاس فصلی",   en="Season Pass",  emoji="🥇", price_toman=60000000, days=90),
+    "weekly":  dict(name="پاس هفتگی",  en="Weekly Pass",  emoji="🥉", price_toman=300000,   days=7),
+    "monthly": dict(name="پاس ماهانه", en="Monthly Pass", emoji="🥈", price_toman=900000,  days=30),
+    "season":  dict(name="پاس فصلی",   en="Season Pass",  emoji="🥇", price_toman=2500000, days=90),
 }
 # جوایز هر پله: (رایگان، پرمیوم)
 PASS_REWARDS = {
