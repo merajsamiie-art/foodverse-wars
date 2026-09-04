@@ -957,8 +957,11 @@ UNGATED = frozenset((
 ))
 
 
+CMD_GLOBAL_CD = 10   # ⏱ فاصله‌ی حداقلی بین دستورهای هر بازیکن — ضداسپم؛ گروه شلوغ نشود
+
+
 class ChannelGate(BaseMiddleware):
-    """عضویت اجباری کانال — فقط روی دستورهای بازی؛ گفتگوی عادی آزاد است."""
+    """عضویت اجباری کانال + کول‌داون سراسری — فقط روی دستورهای بازی؛ گفتگو آزاد است."""
 
     async def __call__(self, handler, event, data):
         u = data.get("event_from_user")
@@ -987,6 +990,13 @@ class ChannelGate(BaseMiddleware):
             return await handler(event, data)  # گفتگوی عادی → آزاد
         if word in UNGATED:
             return await handler(event, data)
+        # ⏱ کول‌داون سراسری ۱۰ ثانیه — بی‌صدا؛ فقط ری‌اکشن ⏳
+        if not perf.allow(("cmdcd", u.id), 1, CMD_GLOBAL_CD):
+            try:
+                await media.react(event.bot, event.chat.id, event.message_id, "⏳")
+            except Exception:
+                pass
+            return
         if not await _gate.is_member(event.bot, u.id):
             try:
                 await event.answer(_gate.join_text(), reply_markup=_gate.join_kb())

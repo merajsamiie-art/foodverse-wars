@@ -880,3 +880,19 @@ def test_watchdog_logic():
     import watchdog
     assert watchdog.GRACE_S == 20 * 60
     assert "خاموش" in watchdog.DOWN_TEXT
+
+
+def test_global_cmd_cooldown():
+    # ⏱ ۱۰ ثانیه بین دستورها — اسلایدینگ-ویندو
+    assert perf.allow(("cmdcd", 99901), 1, 10) is True
+    assert perf.allow(("cmdcd", 99901), 1, 10) is False
+    assert perf.allow(("cmdcd", 99902), 1, 10) is True   # کاربر دیگر آزاد
+    import handlers
+    assert handlers.CMD_GLOBAL_CD == 10
+
+
+def test_welcome_onboarding():
+    import texts
+    assert "@FoodverseWars" in texts.WELCOME_PRIVATE      # عضو کانال شو
+    assert "ادمین" in texts.WELCOME_PRIVATE               # ربات را ادمین کن
+    assert "رفرال" in texts.WELCOME_PRIVATE
