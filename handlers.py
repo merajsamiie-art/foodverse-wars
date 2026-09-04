@@ -613,6 +613,55 @@ async def cmd_admin(m: Message, rest: str):
         for o in rows:
             await m.answer(payments.order_info_for_admin(o),
                            reply_markup=ui.admin_order_kb(o["order_id"]))
+    elif sub == "برند":
+        r = db.db().one("SELECT v FROM kv WHERE k='brand_target'")
+        if not r:
+            await _send(m, "📨 اول یک پیام از گروه نبرد را برای بات فوروارد کن تا شناسه‌اش ثبت شود.")
+            return
+        cid = int(r["v"])
+        from aiogram.types import FSInputFile
+        rep = ["🎨 <b>برندینگ گروه</b>"]
+        try:
+            await m.bot.set_chat_title(cid, "🍔 FOODVERSE WARS | Community")
+            rep.append("✅ عنوان: 🍔 FOODVERSE WARS | Community")
+        except Exception as e:
+            rep.append(f"❌ عنوان: {e}")
+        try:
+            await m.bot.set_chat_description(
+                cid, "⚔️ گروه نبرد رسمی FOODVERSE WARS — ۴ نفر «fw شروع» بزنند و جنگ شروع می‌شود!\n"
+                     "🤖 ربات: @FoodverseWarsBot | 📚 آموزش‌ها: @FoodverseWars")
+            rep.append("✅ توضیحات گروه")
+        except Exception as e:
+            rep.append(f"❌ توضیحات: {e}")
+        try:
+            photo = media.fs_path("brand_group") or media.fs_path("brand_channel")
+            if photo:
+                await m.bot.set_chat_photo(cid, FSInputFile(photo))
+                rep.append("✅ عکس گروه")
+            else:
+                rep.append("❌ عکس: فایل brand_group در assets نیست")
+        except Exception as e:
+            rep.append(f"❌ عکس: {e}")
+        try:
+            intro = ("⚔️ <b>به گروه نبرد FOODVERSE WARS خوش آمدید!</b>\n\n"
+                     "۴ نفر «fw شروع» بزنند تا دنیای این گروه روشن شود؛ بعد:\n"
+                     "🪖 «fw جذب برگر ۵» — ارتش بساز\n"
+                     "🏭 «fw ارتقا کارخانه» — درآمد\n"
+                     "⚔️ «fw جنگ [نام]» — نبرد\n"
+                     "👹 «fw باس» — باس‌رید گروهی\n\n"
+                     "📚 آموزش کامل: @FoodverseWars\n"
+                     "🤖 ربات: @FoodverseWarsBot")
+            photo = media.fs_path("brand_group")
+            if photo:
+                msg = await m.bot.send_photo(cid, FSInputFile(photo), caption=intro,
+                                             parse_mode="HTML")
+            else:
+                msg = await m.bot.send_message(cid, intro)
+            await m.bot.pin_chat_message(cid, msg.message_id, disable_notification=True)
+            rep.append("✅ پست معرفی + پین")
+        except Exception as e:
+            rep.append(f"❌ پست: {e}")
+        await _send(m, "\n".join(rep))
     elif sub == "قیمت" and arg:
         # «قیمت [محصول] [تومان]» → تغییر قیمت محصول
         bits = arg.split()
@@ -629,7 +678,8 @@ async def cmd_admin(m: Message, rest: str):
     else:
         await _send(m, "⚙️ مدیر: پیام [متن] | بن (ریپلای) | حذف‌بن (ریپلای) | هدیه (ریپلای) | "
                       "باس | آمار | تصویر [کلید] (ریپلای عکس) | پیش‌نمایش [کلید] | "
-                      "حذف‌تصویر [کلید] | رسیدها | قیمت [محصول] [تومان]")
+                      "حذف‌تصویر [کلید] | رسیدها | قیمت [محصول] [تومان] | برند "
+                      "(بعد از فوروارد پیام گروه)")
 
 
 # ═══════════ Callback: منوها ═══════════
@@ -754,6 +804,20 @@ GROUP_CMDS = ("شروع", "منو", "من", "پایگاه", "ارتقا", "مس�
 async def on_text(m: Message):
     if not m.text or (m.from_user and m.from_user.is_bot):
         return
+    # 📨 فوروارد ادمین از گروه → ثبت chat_id برای برندینگ گروه
+    if (m.chat.type == "private" and m.from_user
+            and m.from_user.id in ADMIN_IDS and getattr(m, "forward_origin", None)):
+        fchat = None
+        try:
+            fchat = m.forward_origin.chat        # MessageOriginChat/Channel (aiogram 3.7+)
+        except AttributeError:
+            fchat = getattr(m, "forward_from_chat", None)
+        if fchat and getattr(fchat, "type", "") in ("group", "supergroup"):
+            db.db().ex("INSERT OR REPLACE INTO kv(k, v) VALUES(?,?)",
+                       ("brand_target", str(fchat.id)))
+            await _send(m, f"🆔 گروه «{fchat.title}» ثبت شد — chat_id: <code>{fchat.id}</code>\n"
+                          "🎨 حالا «fw مدیر برند» را بفرست تا عنوان/عکس/توضیحات/پست معرفی ست شود.")
+            return
     text = m.text.strip()
     # ─── آینه‌ی اسلش: /جنگ x → fw جنگ x (حتی با privacy mode کار می‌کند) ───
     if text.startswith("/"):
