@@ -107,6 +107,8 @@ CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT);
 CREATE INDEX IF NOT EXISTS idx_wp_chat ON world_players(chat_id);
 CREATE INDEX IF NOT EXISTS idx_listings_chat ON listings(chat_id, active);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_ally_members_aid ON ally_members(alliance_id);
+CREATE INDEX IF NOT EXISTS idx_worlds_started ON worlds(started);
 """
 
 

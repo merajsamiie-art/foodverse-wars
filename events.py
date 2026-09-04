@@ -6,6 +6,7 @@ import time as _t
 import db
 import market
 import shop
+from aiogram.exceptions import TelegramRetryAfter
 
 
 AMBIENCE = [
@@ -40,15 +41,24 @@ class EventEngine:
                 from boss import spawn_tick
                 msg = spawn_tick(cid)
                 if msg and self.bot:
-                    await self.bot.send_message(cid, msg)
+                    await self._send(cid, msg)
                     continue
                 t = _t.time()
                 if t - self._last_amb.get(cid, 0) > 6 * 3600 and random.random() < 0.3:
                     self._last_amb[cid] = t
                     if self.bot:
-                        await self.bot.send_message(cid, random.choice(AMBIENCE))
+                        await self._send(cid, random.choice(AMBIENCE))
             except Exception:
                 continue   # هیچ چتی نباید اسکجولر را بکشد
+
+    async def _send(self, chat_id: int, text: str):
+        """ارسال با احترام به لیمیت سراسری تلگرام (~۳۰/ثانیه) — برای ۱۰هزار گروه."""
+        try:
+            await self.bot.send_message(chat_id, text)
+        except TelegramRetryAfter as e:
+            await asyncio.sleep(e.retry_after + 1)
+            await self.bot.send_message(chat_id, text)
+        await asyncio.sleep(0.06)   # ~۱۶ پیام/ثانیه — حاشیه‌ی امن
 
     async def _loop(self):
         while True:
