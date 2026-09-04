@@ -7,7 +7,7 @@ import config
 
 _cache: dict[int, tuple[bool, float]] = {}
 TTL_OK = 600      # عضو → ۱۰ دقیقه کش
-TTL_NO = 45       # غیرعضو → چک سریع‌تر بعد از پیوستن
+TTL_NO = 10       # غیرعضو → فقط ۱۰ ثانیه؛ بعد از عضویت سریع آزاد می‌شود
 
 
 async def is_member(bot, user_id: int) -> bool:
@@ -29,12 +29,14 @@ def invalidate(user_id: int):
     _cache.pop(user_id, None)
 
 
-def join_kb() -> InlineKeyboardMarkup:
+def join_kb(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="📢 عضویت در کانال", url=config.CHANNEL_URL)
+        InlineKeyboardButton(text="📢 عضویت در کانال", url=config.CHANNEL_URL),
+        InlineKeyboardButton(text="✅ عضو شدم — چک کن", callback_data=f"gc:{user_id}")
     ]])
 
 
 def join_text() -> str:
     return ("📢 <b>برای بازی، اول عضو کانال فوودورس شو</b>\n\n"
-            "یک کلیک کافی است — بعد برگرد و همین دستور را دوباره بزن ✅")
+            "یک کلیک کافی است — بعد دکمه‌ی «عضو شدم» را بزن یا دستورت را تکرار کن ✅ "
+            "(حداکثر ۱۰ ثانیه طول می‌کشد)")

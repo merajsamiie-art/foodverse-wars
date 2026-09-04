@@ -1030,6 +1030,28 @@ async def on_callback(c: CallbackQuery):
     if data.startswith("adm:"):
         await _admin_callback(c)
         return
+    if data.startswith("gc:"):          # ✅ چک فوری عضویت — بعد از کلیک کاربر
+        try:
+            uid_gc = int(data.split(":", 1)[1])
+        except ValueError:
+            await c.answer()
+            return
+        if c.from_user.id != uid_gc:
+            await c.answer("👆 دکمه‌ی خودت را بزن", show_alert=False)
+            return
+        import gate as _gate
+        _gate.invalidate(uid_gc)        # کش قدیمی بی‌اثر — چک تازه
+        ok = await _gate.is_member(c.bot, uid_gc)
+        if ok:
+            await c.answer("✅ عضویت تأیید شد! حالا دستورت را بفرست", show_alert=False)
+            try:
+                await c.message.edit_text("✅ <b>عضویت تأیید شد!</b>\n"
+                                          "🎮 حالا دستورت را بفرست — مثل: «منو»")
+            except Exception:
+                pass
+        else:
+            await c.answer("❌ هنوز عضو نشده‌ای — اول عضو کانال شو", show_alert=True)
+        return
     if not data.startswith("h:"):
         await c.answer()
         return
@@ -1260,7 +1282,7 @@ class ChannelGate(BaseMiddleware):
             return
         if not await _gate.is_member(event.bot, u.id):
             try:
-                await event.answer(_gate.join_text(), reply_markup=_gate.join_kb())
+                await event.answer(_gate.join_text(), reply_markup=_gate.join_kb(u.id))
             except Exception:
                 pass
             return
@@ -1301,8 +1323,9 @@ async def on_text(m: Message):
         text = text[3:].strip()
         if not text:
             return
-    if text.split(maxsplit=1)[0] not in CMD_WORDS:
-        return   # گفتگوی عادی → سکوت محترمانه
+    _fw = text.split(maxsplit=1)[0]
+    if _fw not in CMD_WORDS and _fw.lower() not in CMD_WORDS:
+        return   # گفتگوی عادی → سکوت محترمانه (FC/Fc/fc همه یکی)
     body = text
     perf.STATS.commands += 1
     parts = body.split()
@@ -1338,7 +1361,7 @@ async def on_text(m: Message):
         await cmd_start(m)
     elif cmd in ("رفرال", "دعوت"):
         await cmd_referral(m)
-    elif cmd in ("فودکوین", "fc", "FC"):
+    elif cmd == "فودکوین" or cmd.lower() == "fc":
         await _send(m, player.faucet(m.from_user.id)[1])
     elif cmd == "وان‌شات":
         await cmd_oneshot(m)

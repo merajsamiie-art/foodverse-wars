@@ -1437,3 +1437,24 @@ def test_transfer_flow():
     import handlers
     assert "انتقال" in handlers.CMD_WORDS and "وان‌شات" in handlers.CMD_WORDS
     assert "درود" in handlers.UNGATED
+
+
+# ─── 📢 دروازه‌ی عضویت: سریع و بدون باگ ───
+def test_gate_fast_membership():
+    import gate, handlers
+    # کش منفی فقط ۱۰ ثانیه — بعد از عضویت سریع آزاد می‌شود
+    assert gate.TTL_NO == 10 and gate.TTL_OK == 600
+    # متن راهنما: وعده‌ی ۱۰ ثانیه
+    assert "۱۰ ثانیه" in gate.join_text()
+    # دکمه‌ی چک فوری در کیبورد عضویت
+    kb = gate.join_kb(12345)
+    btns = [b for row in kb.inline_keyboard for b in row]
+    assert any("چک کن" in b.text for b in btns)
+    assert any(b.callback_data == "gc:12345" for b in btns)
+    # هندلر چک فوری در callback: کش invalidate + پیام موفق
+    src = open("handlers.py", encoding="utf-8").read()
+    assert 'data.startswith("gc:")' in src and "invalidate" in src
+    assert "عضویت تأیید شد" in src
+    # FC/Fc/fc همه جواب می‌گیرند (چک CMD_WORDS lowercase-tolerant)
+    assert "_fw.lower() not in CMD_WORDS" in src
+    assert "fc" in handlers.CMD_WORDS
