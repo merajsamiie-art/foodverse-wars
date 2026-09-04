@@ -1,0 +1,73 @@
+name: Foodverse Wars 24/7
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # هر ۱۰ دقیقه در صف؛ concurrency هم‌پوشانی را می‌گیرد
+  workflow_dispatch:
+
+concurrency:
+  group: fw-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: دریافت کد و دیتابیس
+        uses: actions/checkout@v4
+
+      - name: نصب پایتون
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: باز کردن کد ربات
+        run: unzip -o fw-app.zip -d app
+
+      - name: نصب کتابخانه‌ها
+        run: pip install -r app/requirements.txt
+
+      - name: اجرای ربات + ذخیره‌ی خودکار دیتابیس
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          ADMIN_IDS: "8694290031"
+          CHANNEL_ID: "-1003946888531"
+          PAYMENT_CARD: ${{ secrets.PAYMENT_CARD }}
+          FW_DB_PATH: ${{ github.workspace }}/foodverse.db
+        run: |
+          git config user.name "fw-bot"
+          git config user.email "fw-bot@users.noreply.github.com"
+          if [ ! -f foodverse.db ] && [ -f app/foodverse.db ]; then
+            cp app/foodverse.db foodverse.db
+          fi
+          if [ ! -f foodverse.db ]; then
+            python3 -c "import sqlite3; sqlite3.connect('foodverse.db').close()"
+          fi
+          save_db() {
+            python3 -c "import sqlite3; c=sqlite3.connect('foodverse.db'); c.execute('PRAGMA wal_checkpoint(TRUNCATE)'); c.close()" 2>/dev/null || true
+            git add foodverse.db 2>/dev/null || true
+            git commit -m "autosave db" >/dev/null 2>&1 || true
+            git pull --rebase --autostash >/dev/null 2>&1 || true
+            git push >/dev/null 2>&1 || true
+          }
+          trap save_db EXIT
+          ( while true; do
+              sleep 60
+              python3 -c "import sqlite3; c=sqlite3.connect('foodverse.db'); c.execute('PRAGMA wal_checkpoint(TRUNCATE)'); c.close()" 2>/dev/null || true
+              git add foodverse.db 2>/dev/null || true
+              git commit -m "autosave db" >/dev/null 2>&1 || true
+              git pull --rebase --autostash >/dev/null 2>&1 || true
+              git push >/dev/null 2>&1 || true
+            done ) &
+          SAVER=$!
+          timeout 20400 python3 app/run.py || true
+          kill $SAVER 2>/dev/null || true
+          python3 -c "import sqlite3; c=sqlite3.connect('foodverse.db'); c.execute('PRAGMA wal_checkpoint(TRUNCATE)'); c.close()" 2>/dev/null || true
+          git add foodverse.db 2>/dev/null || true
+          git commit -m "db save final" >/dev/null 2>&1 || true
+          git pull --rebase --autostash >/dev/null 2>&1 || true
+          git push >/dev/null 2>&1 || true
