@@ -115,6 +115,9 @@ CREATE INDEX IF NOT EXISTS idx_listings_chat ON listings(chat_id, active);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_ally_members_aid ON ally_members(alliance_id);
 CREATE INDEX IF NOT EXISTS idx_worlds_started ON worlds(started);
+CREATE INDEX IF NOT EXISTS idx_accounts_fc ON accounts(fc DESC);
+CREATE INDEX IF NOT EXISTS idx_accounts_active ON accounts(last_active DESC);
+CREATE INDEX IF NOT EXISTS idx_txlog_user ON txlog(user_id, at);
 """
 
 
@@ -153,6 +156,12 @@ class DB:
             for col, ddl in cols.items():
                 if col not in have:
                     self.conn.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {ddl}")
+        # ⚡ ایندکس‌های فشار — روی دیتابیس زنده هم امن
+        for idx in ("idx_accounts_fc", "idx_accounts_active", "idx_txlog_user"):
+            col = {"idx_accounts_fc": "fc DESC", "idx_accounts_active": "last_active DESC",
+                   "idx_txlog_user": "user_id, at"}[idx]
+            tbl = "accounts" if idx.startswith("idx_accounts") else "txlog"
+            self.conn.execute(f"CREATE INDEX IF NOT EXISTS {idx} ON {tbl}({col})")
 
     def q(self, sql, params=()):
         with self.lock:

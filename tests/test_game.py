@@ -32,6 +32,8 @@ import packs
 import passsys
 import payments
 import refer
+import texts
+import tutorials
 import rank
 import shop
 import war
@@ -896,3 +898,54 @@ def test_welcome_onboarding():
     assert "@FoodverseWars" in texts.WELCOME_PRIVATE      # عضو کانال شو
     assert "ادمین" in texts.WELCOME_PRIVATE               # ربات را ادمین کن
     assert "رفرال" in texts.WELCOME_PRIVATE
+
+
+# ─── تست فشار + سلامت متن‌ها ───
+def test_stress_5k_players():
+    """نسخه‌ی کوچک تست فشار ۱ میلیونی — سرعت و ذخیره‌سازی."""
+    import time as _t
+    c = db.db().conn
+    t0 = _t.time()
+    rows = [(900000 + i, f"فشاری{i}", "🍔", 100, 10, 10, 10, 10, 10, 1,
+             _t.time(), _t.time()) for i in range(5000)]
+    c.executemany("""INSERT OR IGNORE INTO accounts(user_id,name,avatar,fc,meat,cheese,
+                     sauce,potato,metal,crystal,created_at,last_active)
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""", rows)
+    c.commit()
+    dt = _t.time() - t0
+    assert dt < 10                       # ۵ هزار حساب باید سریع باشد
+    n = c.execute("SELECT COUNT(*) FROM accounts WHERE user_id>=900000").fetchone()[0]
+    assert n == 5000                     # همه ذخیره شدند
+    t0 = _t.time()
+    for _ in range(500):
+        player.get(900000 + (id(t0) % 5000))
+    assert _t.time() - t0 < 2            # خواندن سریع
+    # رتبه با ایندکس
+    c.execute("SELECT user_id FROM accounts ORDER BY fc DESC LIMIT 10").fetchall()
+
+
+def test_texts_render_smoke():
+    """همه‌ی متن‌های قالبی سالم رندر می‌شوند — هیچ format شکسته نیست."""
+    ws = texts.WORLD_START.format(n=7)
+    assert "روشن شد" in ws and "7" in ws
+    assert "عضو" in texts.WORLD_WAITING.format(n=3, need=4)
+    assert texts.DEAD_WORLD.format(need=4)
+    for step in texts.GUIDE_STEPS:
+        assert "قدم بعدی" in step["tip"] or "تمام" in step["tip"]
+    for t in tutorials.TUTS.values():
+        assert len(t) > 100 and "<b>" in t
+    assert "مثلث برتری" in texts.HELP
+    assert "@FoodverseWars" in texts.WELCOME_PRIVATE
+
+
+def test_indexes_exist():
+    idx = {r[0] for r in db.db().conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='index'").fetchall()}
+    for must in ("idx_accounts_fc", "idx_wp_chat", "idx_listings_chat", "idx_orders_user"):
+        assert must in idx, must
+
+
+def test_run_py_poll_loop_exists():
+    src = open("run.py", encoding="utf-8").read()
+    assert "poll_forever" in src and "asyncio.sleep(5)" in src   # استراحت هوشمند
+    assert "timeout=25" in src                                   # long-poll
