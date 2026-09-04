@@ -1489,10 +1489,10 @@ def test_bot_msgs_cleanup():
 
 def test_menus_distinct():
     import ui
+    # 🍔 فقط یک منو — گروه و پیوی دقیقاً همان یک چیز را می‌بینند
     hub = [b.text for row in ui.hub_kb(1).inline_keyboard for b in row]
     menu = [b.text for row in ui.menu_kb(1).inline_keyboard for b in row]
-    assert "🧭 هاب شخصی من" in hub and "🎮 منوی بازی گروه" in menu
-    # هاب: شخصی (کارت/پک/پاس/خرید) | منوی گروه: بازی (باس/بازار/اتحاد)
-    assert "👤 کارت من" in hub and "💰 خرید فودکوین" in hub
-    assert "👑 باس" in menu and "🔄 بازار" in menu and "🤝 اتحاد" in menu
-    assert "🛍 فروشگاه ویژه" not in menu      # خرید در پیوی است، نه گروه
+    assert hub == menu and "🍔 منوی فوودورس" in menu
+    # همه‌چیز در همان یک منو: بازی + شخصی
+    assert "👑 باس" in menu and "🔄 بازار" in menu and "📦 پک‌های من" in menu
+    assert "💎 بتل‌پس" in menu and "🎨 ظاهر" in menu and "🛒 فروشگاه" in menu
