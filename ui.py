@@ -12,28 +12,53 @@ def private_kb(bot_username: str, group_link: str) -> InlineKeyboardMarkup:
     ])
 
 
-def hub_kb(user_id: int) -> InlineKeyboardMarkup:
-    """🧭 هاب شخصی — فقط در پیوی: چیزهای خودِ تو."""
-    b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [b("🧭 هاب شخصی من", "hub")],
-        [b("👤 کارت من", "card"), b("🎨 ظاهر من", "cosmetic")],
-        [b("📦 پک‌های من", "packs"), b("💎 بتل‌پس من", "pass")],
-        [b("💰 خرید فودکوین", "store"), b("🛒 فروشگاه", "shop")],
-        [b("🎁 روزانه", "daily"), b("📖 آموزش", "help")],
-    ])
-
-
 def menu_kb(user_id: int) -> InlineKeyboardMarkup:
-    """🎮 منوی بازی — فقط در گروه: بازی گروهی و جنگ."""
+    """🍔 منوی واحد فوودورس — همه‌چیز در یک منو؛ گروه و پیوی هیچ فرقی ندارد."""
     b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
     return InlineKeyboardMarkup(inline_keyboard=[
-        [b("🎮 منوی بازی گروه", "me")],
+        [b("🍔 منوی فوودورس", "me")],
         [b("👤 پروفایل", "me"), b("🏠 پایگاه", "base"), b("🪖 ارتش", "army")],
         [b("👑 باس", "boss"), b("🔄 بازار", "market"), b("🏆 رتبه", "top")],
-        [b("🎒 انبار", "inv"), b("🛠 ساخت", "craft"), b("🤝 اتحاد", "ally")],
+        [b("🎒 انبار", "inv"), b("📦 پک‌های من", "packs"), b("💎 بتل‌پس", "pass")],
+        [b("🛒 فروشگاه", "shop"), b("🎨 ظاهر", "cosmetic"), b("🤝 اتحاد", "ally")],
+        [b("🛒 خرید ارتش (فودکوین)", "armyshop")],
         [b("🎁 روزانه", "daily"), b("📖 آموزش", "help")],
     ])
+
+
+def hub_kb(user_id: int) -> InlineKeyboardMarkup:
+    """همان منوی واحد — برای سازگاری دکمه‌های بازگشت."""
+    return menu_kb(user_id)
+
+
+def army_shop_kb(user_id: int) -> InlineKeyboardMarkup:
+    """🛒 فروشگاه ارتش — خرید شخصیت با فودکوین، فقط با دکمه."""
+    from registry import UNITS
+    from army import unit_price
+    b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
+    rows = []
+    row = []
+    for uid_, un in UNITS.items():
+        if not un.get("cost"):
+            continue
+        row.append(b(f"{un['emoji']} {un['name'].split()[0]} {unit_price(uid_):,}", f"buy:{uid_}"))
+        if len(row) == 2:
+            rows.append(row); row = []
+    if row:
+        rows.append(row)
+    rows.append([b("🔄 بروزرسانی", "armyshop")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def help_kb(user_id: int, page: int = 0) -> InlineKeyboardMarkup:
+    """📖 راهنمای صفحه‌ای — ۳ صفحه کوتاه با دکمه شماره"""
+    b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
+    n = 3
+    fa = ("۱", "۲", "۳")
+    row = []
+    for i in range(n):
+        row.append(b(("🔘" if i == page else "⚪️") + " " + fa[i], f"hp{i}"))
+    return InlineKeyboardMarkup(inline_keyboard=[row])
 
 
 def sub_kb(user_id: int, buttons: list) -> InlineKeyboardMarkup:
