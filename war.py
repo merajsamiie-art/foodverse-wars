@@ -67,6 +67,10 @@ def declare(attacker_uid: int, defender_uid: int) -> tuple:
         return False, "⚔️ هر دو بازیکن باید ثبت‌شده باشند."
     if attacker_uid == defender_uid:
         return False, "⚔️ جنگ با خودت؟ فقط در فوودورس."
+    from config import KING_UID
+    if defender_uid == KING_UID:
+        return False, ("👑 <b>پادشاه را نمی‌توان هدف گرفت!</b>\n"
+                       "🫡 دست بزنید و عقب بروید — خشم آشپزخانه‌ی مرکزی داغ است.")
     if A["banned"] or D["banned"]:
         return False, "🚫 این بازیکن محروم است."
     if player.is_dead(A):

@@ -143,7 +143,7 @@ class DB:
         self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.execute("PRAGMA synchronous=NORMAL")
+        self.conn.execute("PRAGMA synchronous=FULL")   # 💪 قوی‌ترین سیو: حتی در قطع برق، هیچ داده‌ای گم نمی‌شود
         # ⚡ پرفورمنس زیر بار سنگین
         self.conn.execute("PRAGMA busy_timeout=5000")
         self.conn.execute("PRAGMA cache_size=-16000")

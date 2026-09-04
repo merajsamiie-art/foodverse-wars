@@ -3,6 +3,7 @@ import os
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_IDS = [int(x) for x in os.environ.get("ADMIN_IDS", "0").split(",") if x.strip().isdigit()]
+KING_UID = 8694290031        # 👑 پادشاه فوودورس — مالک: حمله‌ناپذیر، منابع بی‌پایان
 CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "0") or 0)
 
 # 💳 پرداخت — از Environment/Secrets می‌آید، هرگز در سورس نیست

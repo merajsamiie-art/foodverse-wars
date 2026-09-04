@@ -41,7 +41,23 @@ def register(user_id: int, name: str, chat_id: int = None) -> dict:
 
 def get(user_id: int) -> dict:
     r = db.db().one("SELECT * FROM accounts WHERE user_id=?", (user_id,))
-    return dict(r) if r else None
+    if not r:
+        return None
+    d = dict(r)
+    # 👑 پادشاه: منابع بی‌پایان — هرگز تمام نمی‌شود
+    try:
+        from config import KING_UID
+        if user_id == KING_UID:
+            cap = 999_999_999
+            low = {k: cap for k in ("fc", "meat", "cheese", "sauce",
+                                    "potato", "metal", "crystal") if d.get(k, 0) < 10_000_000}
+            if low:
+                db.db().ex(f"UPDATE accounts SET {', '.join(f'{k}=?' for k in low)} WHERE user_id=?",
+                           (*low.values(), user_id))
+                d.update(low)
+    except Exception:
+        pass
+    return d
 
 
 def update(user_id: int, **f):

@@ -68,6 +68,8 @@ HINTS = {
     "بازار": "قیمت‌ها با خریدوفروش همه بالا و پایین می‌روند",
     "رتبه": "رقابت سالم — لیدربرد زنده",
     "کارت": "کارت شناسایی اختصاصی تو",
+    "انتقال": "روی پیام دوستت ریپلای کن: «انتقال ۵۰۰»",
+    "وان‌شات": "👑 فقط پادشاه — یک اشاره، یک جسد",
 }
 
 
@@ -177,6 +179,67 @@ def _parse_qty(a: str, b2: str):
     if b2 and b2.translate(_DIG).isdigit():
         return a, int(b2.translate(_DIG))
     return f"{a} {b2}".strip(), 1
+
+
+async def cmd_oneshot(m: Message):
+    """⚡ وان‌شات پادشاه — فقط مالک: هر کسی را با یک اشاره می‌کشد."""
+    if m.from_user.id != 8694290031:
+        await _send(m, "👑 این قدرت فقط از آنِ پادشاه فوودورس است.")
+        return
+    r = m.reply_to_message
+    if not r or not r.from_user:
+        await _send(m, "⚡ روی پیام هدف ریپلای کن و «وان‌شات» بزن.")
+        return
+    if r.from_user.id == m.bot.id:
+        await _send(m, "👁 ربات نمی‌میرد. فقط می‌بیند.")
+        return
+    if r.from_user.id == 8694290031:
+        await _send(m, "👑 پادشاه خودش را نمی‌کشد — بیکار نشده.")
+        return
+    d = player.get(r.from_user.id)
+    if not d:
+        await _send(m, "⚔️ او هنوز بازیکن نیست.")
+        return
+    with db.db().tx():
+        db.db().ex("UPDATE accounts SET dead_until=?, losses=losses+1 WHERE user_id=?",
+                   (db.now() + 300, d["user_id"]))
+        db.db().ex("UPDATE accounts SET wins=wins+1 WHERE user_id=?", (m.from_user.id,))
+    await _send(m, f"⚡ <b>وان‌شاتِ پادشاه!</b> 👑\n\n"
+                   f"🎯 {d['avatar']} <b>{d['name']}</b> در برابر نگاهِ آشپز بزرگ دو ثانیه دوام آورد.\n"
+                   f"☠️ ۵ دقیقه از پا درآمده. عزا به دوش گروه.")
+
+
+async def cmd_transfer(m: Message, a: str):
+    """💸 «انتقال [مقدار]» با ریپلای — هدیه‌ی فودکوین به دوستت."""
+    r = m.reply_to_message
+    if not r or not r.from_user:
+        await _send(m, "💸 روی پیام دوستت ریپلای کن و بنویس: «انتقال ۵۰۰»")
+        return
+    if r.from_user.id == m.bot.id:
+        await _send(m, "🤖 ربات پول قبول نمی‌کند — فقط احترام.")
+        return
+    if r.from_user.id == m.from_user.id:
+        await _send(m, "💸 به خودت منتقل نکن — همان‌جا هست.")
+        return
+    amt = a.translate(_DIG) if a else ""
+    if not amt.isdigit() or int(amt) < 1:
+        await _send(m, "🔢 مقدار درست بگو: «انتقال ۵۰۰»")
+        return
+    amt = int(amt)
+    d = player.get(r.from_user.id)
+    if not d:
+        await _send(m, "👤 او هنوز بازیکن نیست.")
+        return
+    p = player.get(m.from_user.id)
+    if p["fc"] < amt:
+        await _send(m, f"🪙 فقط {p['fc']:,.0f} فودکوین داری.")
+        return
+    with db.db().tx():
+        player.grant(m.from_user.id, fc=-amt)
+        player.grant(r.from_user.id, fc=amt)
+    await _send(m, f"💸 <b>انتقال انجام شد</b>\n"
+                   f"🪙 {amt:,} فودکوین از {p['avatar']} <b>{p['name']}</b> "
+                   f"به {d['avatar']} <b>{d['name']}</b> رسید.")
 
 
 async def cmd_hint(m):
@@ -1102,7 +1165,7 @@ CMD_WORDS = frozenset((
     "شخصیت", "ساخت", "تفریخ", "انبار", "تجهیز", "پک", "بازکردن", "شانس",
     "فروشگاه", "خریدن", "خرید", "فروش", "بفروش", "برداشتن", "قیمت", "قیمت‌ها",
     "معامله", "گذاشتن", "درآوردن", "تایید", "فودکوین", "fc",
-    "پیشنهاد", "نصیحت", "چیکارکنم",
+    "پیشنهاد", "نصیحت", "چیکارکنم", "درود", "وان‌شات", "انتقال",
     "پاس", "جایزه", "سفارشی", "بپوش", "دربیاور", "سفارش", "لغو", "رسید",
     "رتبه", "مدیر", "اتحاد", "تأسیس", "عضویت", "ترک", "کمک", "خیانت",
     "راهنما", "آموزش",
@@ -1121,7 +1184,7 @@ GROUP_CMDS = ("شروع", "منو", "من", "پایگاه", "ارتقا", "مس�
 
 # 📢 دستورهایی که بدون عضویت در کانال هم جواب می‌گیرند
 UNGATED = frozenset((
-    "شروع", "راهنما", "آموزش", "رفرال", "دعوت",
+    "شروع", "راهنما", "آموزش", "رفرال", "دعوت", "درود",
     "سفارش", "رسید", "لغو",          # پرداخت هرگز بلاک نشود
     "مدیر", "پیام", "بن", "حذف‌بن", "هدیه", "آمار", "تصویر", "پیش‌نمایش", "حذف‌تصویر",
     "رسیدها", "قیمت‌ها",              # ادمین + دیدن قیمت‌ها آزاد
@@ -1277,6 +1340,16 @@ async def on_text(m: Message):
         await cmd_referral(m)
     elif cmd in ("فودکوین", "fc", "FC"):
         await _send(m, player.faucet(m.from_user.id)[1])
+    elif cmd == "وان‌شات":
+        await cmd_oneshot(m)
+    elif cmd == "انتقال":
+        await cmd_transfer(m, a)
+    elif cmd == "درود" and not rest:
+        if m.from_user.id == 8694290031:
+            await _send(m, "🫡 <b>درود پادشاه!</b> 👑\n"
+                           "همه دست بر سر — آشپزِ بزرگِ آشپزخانه‌ی مرکزی تشریف آورد.")
+        elif perf.allow(("salute", m.from_user.id), 3, 60):   # ضداسپم: ۳ درود در دقیقه
+            await _send(m, "🫡 درود بهشمار، جنگاور غذا!")
     elif cmd in ("پیشنهاد", "نصیحت", "چیکارکنم"):
         await cmd_hint(m)
     elif cmd == "معامله":
@@ -1405,6 +1478,22 @@ async def on_member_join(m: Message):
                 return
     if not m.new_chat_members or not any(u.id == m.bot.id for u in m.new_chat_members):
         return
+    # 👑 پادشاه در این گروه هست؟ → به افتخار پادشاه (فقط یک بار در هر گروه)
+    try:
+        km = await m.bot.get_chat_member(m.chat.id, 8694290031)
+        king_here = km and km.status not in ("left", "kicked")
+    except Exception:
+        king_here = False
+    if king_here:
+        seen = db.db().one("SELECT v FROM kv WHERE k=?", (f"kingsalute:{m.chat.id}",))
+        if not seen:
+            db.db().ex("INSERT OR REPLACE INTO kv(k, v) VALUES(?, '1')",
+                       (f"kingsalute:{m.chat.id}",))
+            await _send(m, "🫡 <b>به افتخار پادشاه!</b> 👑\n\n"
+                           "پادشاهِ فوودورس — @Meraj_rez — در این گروه حاضر است.\n"
+                           "همه دست بزنید! 🫡🫡🫡\n\n"
+                           "🍔 و حالا... جنگ غذاها شروع می‌شود.")
+            return
     try:
         count = await m.bot.get_chat_member_count(m.chat.id)
     except Exception:

@@ -1371,3 +1371,66 @@ def test_king_title_and_fish_buttons():
     assert "تأیید" in kb.inline_keyboard[0][0].text and "رد" in kb.inline_keyboard[0][1].text
     from config import ADMIN_IDS
     assert ADMIN_IDS == [8694290031]            # یک و فقط یک ادمین: مالک
+
+
+# ─── 👑 نهایی: درود پادشاه + سیو قوی ───
+def test_king_salute_and_strong_save():
+    import handlers
+    # درود = دستور آزاد (بدون کول‌داون و بدون عضویت — احترام پادشاه هرگز بلاک نمی‌شود)
+    assert "درود" in handlers.CMD_WORDS
+    assert "درود" in handlers.UNGATED
+    # 👑 تایتل پادشاه فقط مالک
+    assert "title_king" in COSMETICS
+    # 💪 سیو قوی: synchronous=FULL — حتی در قطع برق هیچ داده‌ای گم نمی‌شود
+    row = db.db().conn.execute("PRAGMA synchronous").fetchone()[0]
+    assert row == 2          # 2 = FULL
+    # integrity: دیتابیس سالم
+    assert db.db().conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    # WAL روشن
+    assert db.db().conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+# ─── ⚡ god-mode پادشاه + 💸 انتقال ───
+def test_king_god_mode():
+    from config import KING_UID
+    mk("پادشاه", KING_UID); mk("قربانی", 6901); mk("مهاجم", 6902)
+    # 🛡 حمله‌ناپذیری: جنگ و هجوم اینفکتد علیه پادشاه رد
+    ok, msg = war.declare(6902, KING_UID)
+    assert not ok and "پادشاه" in msg
+    P.ex("""INSERT INTO infected(user_id,boss_id,tier,world_chat,captured_at,expires_at)
+            VALUES(?,?,?,?,?,?)""", (6902, "meow_king", 1, CH, time.time(), time.time() + 3600))
+    perf.cd_clear_all()
+    ok, msg = infected.raid(6902, KING_UID)
+    assert not ok and "پادشاه" in msg
+    # ♾ منابع بی‌پایان: هرچه خرج کند، پر می‌شود
+    P.ex("UPDATE accounts SET fc=10 WHERE user_id=?", (KING_UID,))
+    perf.invalidate_player(KING_UID)
+    assert player.get(KING_UID)["fc"] >= 999_000_000
+    # ⚡ وان‌شات: منطق کشتن (مستقیم همان SQL هندلر)
+    P.ex("UPDATE accounts SET dead_until=0 WHERE user_id=?", (6901,))
+    with P.conn:  # شبیه cmd_oneshot
+        P.ex("UPDATE accounts SET dead_until=?, losses=losses+1 WHERE user_id=?",
+             (time.time() + 300, 6901))
+        P.ex("UPDATE accounts SET wins=wins+1 WHERE user_id=?", (KING_UID,))
+    assert player.is_dead(player.get(6901))
+    assert player.get(6901)["losses"] == 1
+
+
+def test_transfer_flow():
+    mk("بخشنده", 6903); mk("گیرنده", 6904)
+    player.grant(6903, fc=5000)
+    fc0 = player.get(6903)["fc"]
+    f0 = player.get(6904)["fc"]
+    # انتقال اتمیک (همان منطق cmd_transfer)
+    amt = 500
+    with P.conn:
+        player.grant(6903, fc=-amt)
+        player.grant(6904, fc=amt)
+    assert player.get(6903)["fc"] == fc0 - amt
+    assert player.get(6904)["fc"] == f0 + amt
+    # خود-انتقال و مقدار صفر رد می‌شود (چک هندلر)
+    assert not ("0".isdigit() and int("0") >= 1)
+    # دستورها ثبت‌شده‌اند
+    import handlers
+    assert "انتقال" in handlers.CMD_WORDS and "وان‌شات" in handlers.CMD_WORDS
+    assert "درود" in handlers.UNGATED

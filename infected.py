@@ -119,6 +119,9 @@ def raid(attacker_uid: int, target_uid: int) -> tuple:
         return False, "🎯 چنین بازیکنی نیست."
     if attacker_uid == target_uid:
         return False, "🧟 اینفکتدت خودت را هم می‌بلعد؛ نه."
+    from config import KING_UID
+    if target_uid == KING_UID:
+        return False, "👑 پادشاه را حتی هیولاها لمس نمی‌کنند — دست بزنید و عقب!"
     inf = get(attacker_uid)
     if not inf:
         return False, "🧟 اینفکتد فعالی نداری. باسِ سقوط‌کرده‌ی گروه را اسیر کن: «اینفکت»"
