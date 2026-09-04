@@ -37,6 +37,7 @@ jobs:
           ADMIN_IDS: "8694290031"
           CHANNEL_ID: "-1003946888531"
           PAYMENT_CARD: ${{ secrets.PAYMENT_CARD }}
+          PAYMENT_HOLDER: "محسن سمیعی"
           FW_DB_PATH: ${{ github.workspace }}/foodverse.db
         run: |
           git config user.name "fw-bot"
