@@ -10,6 +10,35 @@ from config import (CD_WAR, WAR_STEAL_PCT, TREASURY_PROTECT, LOSS_WIN, LOSS_LOSE
 from registry import UNITS, ITEMS, res_name
 
 
+# ⚖️ مثلث برتری: فست‌فود > شیرینی > سبزیجات > فست‌فود | میو و عجیب خنثی
+COUNTERS = dict(fastfood="candy", candy="veggie", veggie="fastfood")
+CTYPE_FA = dict(fastfood="فست‌فود", candy="شیرینی", veggie="سبزیجات",
+                meow="میو", weird="عجیب")
+
+
+def _counter_bonus(attacker_uid: int, defender_uid: int) -> tuple[float, str]:
+    """ترکیب درست ارتش = برتری واقعی. → (بونوس، توضیح کوتاه)"""
+    a, d = army.army_of(attacker_uid), army.army_of(defender_uid)
+    a_n, d_n = sum(a.values()) or 1, sum(d.values()) or 1
+    a_t, d_t = {}, {}
+    for uid, n in a.items():
+        t = UNITS[uid].get("ctype", "")
+        a_t[t] = a_t.get(t, 0) + n
+    for uid, n in d.items():
+        t = UNITS[uid].get("ctype", "")
+        d_t[t] = d_t.get(t, 0) + n
+    adv = sum(n / a_n * d_t.get(COUNTERS.get(t, ""), 0)
+              for t, n in a_t.items() if t in COUNTERS)
+    disadv = sum(n / d_n * a_t.get(COUNTERS.get(t, ""), 0)
+                 for t, n in d_t.items() if t in COUNTERS)
+    bonus = max(-0.20, min(0.30, round(0.35 * (adv - disadv), 2)))
+    if bonus > 0.05:
+        return bonus, f"⚖️ برتری نوع ارتش: +{int(bonus * 100)}٪"
+    if bonus < -0.05:
+        return bonus, f"⚖️ ضعف نوع ارتش: {int(bonus * 100)}٪"
+    return 0.0, ""
+
+
 def _defense_bonus(user_id: int) -> float:
     return 0.04 * army.blds_cached(user_id).get("defense", 0)
 
@@ -62,8 +91,9 @@ def declare(attacker_uid: int, defender_uid: int) -> tuple:
         dfn_d = _defense_bonus(defender_uid)
         ally_d = _ally_def_bonus(defender_uid)
 
-        atk = a_stats["atk"] * (1 + tr_a + eq_a["atk"] + _use_boost(attacker_uid, "war_dmg"))
-        dfn = d_stats["df"] * (1 + dfn_d + eq_d["df"] + ally_d)
+        c_bonus, c_txt = _counter_bonus(attacker_uid, defender_uid)
+        atk = a_stats["atk"] * (1 + tr_a + eq_a["atk"] + _use_boost(attacker_uid, "war_dmg") + max(0, c_bonus))
+        dfn = d_stats["df"] * (1 + dfn_d + eq_d["df"] + ally_d + max(0, -c_bonus))
         a_hp = a_stats["hp"] * (1 + eq_a["df"])
         d_hp = d_stats["hp"] * (1 + eq_d["df"] + ally_d)
 
@@ -135,11 +165,12 @@ def declare(attacker_uid: int, defender_uid: int) -> tuple:
         st = " ".join(res_name(k) + f" {v:.0f}" for k, v in steal.items()) or "هیچی"
         Wp, Lp = player.get(winner), player.get(loser)
         drop_txt = " ".join(res_name(k) + f" {v:.0f}" for k, v in death["drop"].items())
-        msg = (f"⚔️ <b>FOODVERSE WAR</b>\n"
+        msg = (f"⚔️ <b>نبرد فوودورس</b>\n"
                f"{Wp['avatar']} <b>{Wp['name']}</b> 🏆 شکست داد {Lp['avatar']} <b>{Lp['name']}</b>\n"
                f"{' | '.join(rounds[:3])}\n"
+               + (c_txt + "\n" if c_txt else "") +
                f"💀 تلفات: برنده {sum(wl.values())} | بازنده {sum(ll.values())}\n"
-               f"🎒 غنیمت: {st}" + (f" + 🪙 {fc_steal:.0f} سکه" if fc_steal >= 1 else "") + "\n"
+               f"🎒 غنیمت: {st}" + (f" + 🪙 {fc_steal:.0f} فودکوین" if fc_steal >= 1 else "") + "\n"
                f"☠️ <b>{Lp['name']} از پا درآمد</b> — {death['minutes']} دقیقه مرگ، بعدش ۵ دقیقه محافظت.\n"
                f"📉 افت زمینی: {drop_txt or '—'}")
         return True, msg

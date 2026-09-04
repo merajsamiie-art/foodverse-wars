@@ -80,7 +80,7 @@ def capture(user_id: int, chat_id: int) -> tuple:
     if (p["level"] or 1) < INFECTED_LEVEL:
         return False, f"🧟 برای اسیرکردن باس، سطح {INFECTED_LEVEL} لازم است."
     if p["fc"] < INFECTED_COST_FC:
-        return False, f"🧟 اسیرکردن {INFECTED_COST_FC:,} سکه می‌خواهد."
+        return False, f"🧟 اسیرکردن {INFECTED_COST_FC:,} فودکوین می‌خواهد."
     bid = k["boss_id"]
     if bid not in _pool(chat_id):
         return False, "🧟 این باس همین حالا در استخرِ آزادِ این دنیا نیست."

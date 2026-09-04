@@ -4,7 +4,7 @@ import perf
 import player
 from config import (CD_MARKET, MARKET_TAX, LISTING_FEE, MAX_LISTING_PRICE,
                     NPC_SELL_RATIO, PRICE_MIN_MULT, PRICE_MAX_MULT, PRICE_STEP, BUY_LIMIT)
-from registry import ITEMS, RES_PRICES, RES_META, item_name
+from registry import ITEMS, RES_PRICES, RES_META, item_name, ITEM_VALUE
 
 
 def _log(chat_id, user_id, kind, detail):
@@ -74,7 +74,7 @@ def npc_buy(user_id: int, res: str, qty: int) -> tuple:
     qty = max(1, min(qty, BUY_LIMIT))
     price = get_price(res) * qty
     if p["fc"] < price:
-        return False, f"🪙 {RES_META[res]['name']} ×{qty} = {price} سکه — کافی نداری."
+        return False, f"🪙 {RES_META[res]['name']} ×{qty} = {price} فودکوین — کافی نداری."
     if player.on_cd(user_id, "market"):
         return False, f"⏳ {player.cd_left(user_id, 'market')} ثانیه."
     with db.db().tx():
@@ -84,7 +84,7 @@ def npc_buy(user_id: int, res: str, qty: int) -> tuple:
     player.set_cd(user_id, "market", CD_MARKET)
     _log(None, user_id, "npc_buy", f"{res}x{qty}={price}")
     player.dtrack(user_id, "bought")
-    return True, f"🏦 خریدی: {RES_META[res]['emoji']} {RES_META[res]['name']} ×{qty} (−{price} سکه)"
+    return True, f"🏦 خریدی: {RES_META[res]['emoji']} {RES_META[res]['name']} ×{qty} (−{price} فودکوین)"
 
 
 def npc_sell(user_id: int, res: str, qty: int) -> tuple:
@@ -102,7 +102,7 @@ def npc_sell(user_id: int, res: str, qty: int) -> tuple:
     player.set_cd(user_id, "market", CD_MARKET)
     player.dtrack(user_id, "sold")
     _log(None, user_id, "npc_sell", f"{res}x{qty}=+{gain}")
-    return True, f"🏦 فروختی: {RES_META[res]['emoji']} ×{qty} (+{gain} سکه)"
+    return True, f"🏦 فروختی: {RES_META[res]['emoji']} ×{qty} (+{gain} فودکوین)"
 
 
 # ─── 🔄 بازار بازیکن‌ها ───
@@ -117,9 +117,15 @@ def sell_item(user_id: int, chat_id: int, item_ref: str, qty: int, price: int) -
     qty = max(1, min(qty, player.inv(user_id).get(iid, 0)))
     if qty < 1:
         return False, "🎒 نداریش."
-    price = max(1, min(int(price), MAX_LISTING_PRICE))
+    price = int(price)
+    if price < 1:
+        return False, "🚫 قیمت نامعتبر است."
+    unit_cap = ITEM_VALUE.get(iid, 5000) * 4     # 🧮 سقف عقلانی: ۴ برابر ارزش واقعی
+    if price > unit_cap * qty or price > MAX_LISTING_PRICE:
+        return False, (f"🧮 قیمت غیرواقعی است — سقف این کالا: {min(unit_cap * qty, MAX_LISTING_PRICE):,} فودکوین.\n"
+                       f"نکته: خرید آگهی خودت ممنوع است و قیمت‌های عجیب بررسی می‌شود.")
     if p["fc"] < LISTING_FEE:
-        return False, f"🪙 هزینه‌ی درج آگهی {LISTING_FEE} سکه است."
+        return False, f"🪙 هزینه‌ی درج آگهی {LISTING_FEE} فودکوین است."
     if player.on_cd(user_id, "market"):
         return False, f"⏳ {player.cd_left(user_id, 'market')} ثانیه."
     with db.db().tx():
@@ -130,8 +136,8 @@ def sell_item(user_id: int, chat_id: int, item_ref: str, qty: int, price: int) -
                    (chat_id, user_id, iid, qty, price, db.now()))
     player.set_cd(user_id, "market", CD_MARKET)
     _log(chat_id, user_id, "list", f"{iid}x{qty}@{price}")
-    return True, (f"🔄 آگهی ثبت شد: {item_name(iid)} ×{qty} → {price} سکه\n"
-                  f"(کارمزد درج {LISTING_FEE} سکه | مالیات فروش {int(MARKET_TAX * 100)}٪)")
+    return True, (f"🔄 آگهی ثبت شد: {item_name(iid)} ×{qty} → {price} فودکوین\n"
+                  f"(کارمزد درج {LISTING_FEE} فودکوین | مالیات فروش {int(MARKET_TAX * 100)}٪)")
 
 
 def buy_listing(user_id: int, chat_id: int, listing_id: int) -> tuple:
@@ -142,8 +148,10 @@ def buy_listing(user_id: int, chat_id: int, listing_id: int) -> tuple:
             return False, "🔄 این آگهی دیگر فعال نیست."
         if l["seller_uid"] == user_id:
             return False, "🔄 آگهی خودت را نمی‌توانی بخری."
+        if l["price"] < 1 or l["qty"] < 1:
+            return False, "🚫 آگهی خراب است — گزارش شد."
         if p["fc"] < l["price"]:
-            return False, f"🪙 قیمت {l['price']} سکه — کافی نداری."
+            return False, f"🪙 قیمت {l['price']} فودکوین — کافی نداری."
         if player.inv_free(user_id) < 1:
             return False, "🎒 انبار پر است."
         with db.db().tx():
@@ -154,7 +162,7 @@ def buy_listing(user_id: int, chat_id: int, listing_id: int) -> tuple:
             db.db().ex("UPDATE listings SET active=0, buyer_uid=? WHERE id=?", (user_id, listing_id))
         _log(chat_id, user_id, "buy", f"L{listing_id} {l['item_id']}x{l['qty']}={l['price']}")
         _log(chat_id, l["seller_uid"], "sold", f"L{listing_id} +{net}")
-        return True, f"🛒 خریداری شد: {item_name(l['item_id'])} ×{l['qty']} (−{l['price']} سکه)"
+        return True, f"🛒 خریداری شد: {item_name(l['item_id'])} ×{l['qty']} (−{l['price']} فودکوین)"
 
 
 def market_text(chat_id: int, page: int = 0) -> str:
@@ -170,7 +178,7 @@ def market_text(chat_id: int, page: int = 0) -> str:
                 "فروش: «بفروش [کالا] [تعداد] [قیمت]» | خرید: «برداشتن [شماره]»")
     lines = [f"🔄 <b>بازار این دنیا</b> — صفحه {page + 1}/{pages}", ""]
     for l in rows[page * per:(page + 1) * per]:
-        lines.append(f"#{l['id']} • {item_name(l['item_id'])} ×{l['qty']} → 🪙 {l['price']:,} سکه — {l['seller']}")
+        lines.append(f"#{l['id']} • {item_name(l['item_id'])} ×{l['qty']} → 🪙 {l['price']:,} فودکوین — {l['seller']}")
     lines.append("\n🛒 «برداشتن [شماره]» | «بازار 2» برای صفحه‌ی بعد")
     return "\n".join(lines)
 
@@ -186,7 +194,7 @@ def price_history(chat_id: int, item_ref: str) -> str:
         return f"📊 {item_name(iid)}: هنوز معامله‌ای ثبت نشده."
     lines = [f"📊 <b>سابقه‌ی قیمت</b> — {item_name(iid)}"]
     for r in rows:
-        lines.append(f"• ×{r['qty']} → 🪙 {r['price']:,} سکه")
+        lines.append(f"• ×{r['qty']} → 🪙 {r['price']:,} فودکوین")
     return "\n".join(lines)
 
 

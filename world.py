@@ -19,13 +19,16 @@ def member_count(chat_id: int) -> int:
 
 
 def try_start(chat_id: int) -> tuple[int, str, bool]:
-    """۴+ عضو → روشن. → (n, آواتارها, started)"""
+    """شروع با شمارش واقعیِ اعضای گروه — دیگر لازم نیست ۴ نفر دستور بزنند."""
     ensure(chat_id)
-    rows = db.db().q("""SELECT a.avatar FROM world_players w JOIN accounts a ON a.user_id=w.user_id
-                        WHERE w.chat_id=? ORDER BY w.joined""", (chat_id,))
-    n = len(rows)
-    names = " ".join(r["avatar"] for r in rows[-12:])
-    if n >= MIN_PLAYERS:
+    return 0, "", False   # قدیمی؛ فقط برای سازگاری
+
+
+def start_now(chat_id: int, member_count: int) -> tuple[bool, str]:
+    """عضوها خودکار شمرده می‌شوند: ۴+ → دنیا روشن؛ کمتر → پیام منتظر."""
+    ensure(chat_id)
+    if member_count >= MIN_PLAYERS:
         db.db().ex("UPDATE worlds SET started=1 WHERE chat_id=?", (chat_id,))
-        return n, names, True
-    return n, names, False
+        return True, ""
+    return False, (f"⏳ برای شروع بازی، گروه باید حداقل {MIN_PLAYERS} عضو داشته باشد — "
+                   f"الان {member_count} عضو دارید. چند دوست اضافه کنید و دوباره «شروع» بزنید!")

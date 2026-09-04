@@ -54,7 +54,7 @@ def build_colony(user_id: int) -> tuple:
     if player.on_cd(user_id, "build"):
         return False, f"⏳ {player.cd_left(user_id, 'build')} ثانیه."
     if not player.can_pay(p, COLONY_COST):
-        return False, "🪙 مستعمره: ۸۰۰ سکه + ۲۵۰ گوشت + ۱۵۰ فلز."
+        return False, "🪙 مستعمره: ۸۰۰ فودکوین + ۲۵۰ گوشت + ۱۵۰ فلز."
     with db.db().tx():
         player.pay(user_id, COLONY_COST)
         player.update(user_id, colonies=p["colonies"] + 1)

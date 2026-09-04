@@ -135,4 +135,6 @@ def army_text(user_id: int) -> str:
         u = UNITS[uid]
         lines.append(f"{u['emoji']} {u['name']} ×{n}")
     return (f"🪖 <b>ارتش</b> — قدرت {perf.fmt(army_power(user_id))}\n" +
-            "\n".join(lines))
+            "\n".join(lines) +
+            "\n\n⚖️ مثلث برتری: فست‌فود > شیرینی > سبزیجات > فست‌فود (۲۵٪+)\n"
+            "میو و عجیب خنثی‌اند — ارتشِ متنوع، حریفِ متنوع را می‌شکند.")

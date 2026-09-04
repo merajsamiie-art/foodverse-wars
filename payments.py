@@ -5,7 +5,7 @@ import random
 import db
 import player
 from config import PAYMENT_CARD, PAYMENT_HOLDER, ORDER_EXPIRE_S
-from registry import PACKS, PASSES
+from registry import PACKS, PASSES, FC_PACKS
 
 
 def _log(user_id, kind, detail):
@@ -14,12 +14,18 @@ def _log(user_id, kind, detail):
 
 
 def products_text() -> str:
-    lines = ["🛍 <b>فروشگاه ویژه</b> — پک‌ها و پاس‌ها", ""]
-    lines.append("📦 <b>پک‌ها</b> (شانس‌ها شفاف: «شانس [نام]»):")
+    lines = ["🛍 <b>فروشگاه ویژه</b> — فودکوین، پک و پاس", ""]
+    lines.append("🪙 <b>فودکوین</b> — مستقیم به حسابت:")
+    for fp in FC_PACKS.values():
+        note = (f" + صندوق نهایی ×{fp['chests']} + پاس فصلی + عنوان «حامی فوودورس»"
+                if "chests" in fp else "")
+        lines.append(f"{fp['emoji']} {fp['name']}: {fp['fc']:,} فودکوین{note}\n"
+                     f"   💰 {fp['price_toman']:,} تومان")
+    lines.append("\n📦 <b>پک‌ها</b> (شانس‌ها شفاف: «شانس [نام]»):")
     for pid, pk in PACKS.items():
         if pk["price_toman"] > 0:
             lines.append(f"{pk['emoji']} {pk['name']}\n{pk['en']}\n   💰 {pk['price_toman']:,} تومان")
-    lines.append("\n💎 <b>Battle Pass</b>:")
+    lines.append("\n💎 <b>پاس جنگ</b>:")
     for pt, ps in PASSES.items():
         lines.append(f"{ps['emoji']} {ps['name']} ({ps['days']} روز)\n{ps['en']}\n   💰 {ps['price_toman']:,} تومان")
     lines.append("\nℹ️ پرداخت: کارت‌به‌کارت + تأیید دستی مدیر (امن و بدون ربات)"
@@ -32,6 +38,8 @@ def _price_of(product: str) -> int:
         return PACKS[product]["price_toman"]
     if product in PASSES:
         return PASSES[product]["price_toman"]
+    if product in FC_PACKS:
+        return FC_PACKS[product]["price_toman"]
     return 0
 
 
@@ -141,6 +149,22 @@ def decide(order_id: str, admin_id: int, approve: bool) -> tuple:
 
 
 def _grant_product(user_id: int, product: str) -> str:
+    if product in FC_PACKS:
+        fp = FC_PACKS[product]
+        player.grant(user_id, fc=fp["fc"])
+        extra = ""
+        if "chests" in fp:   # 🌌 بسته‌ی افسانه: صندوق + پاس + عنوان
+            player.add_item(user_id, "pack_ultimate_chest", fp["chests"])
+            if fp.get("pass_days"):
+                import passsys
+                passsys.activate(user_id, "season", fp["pass_days"])
+            if fp.get("title"):
+                db.db().ex("INSERT OR IGNORE INTO cosmetics(user_id, cid) VALUES(?,?)",
+                           (user_id, fp["title"]))
+            extra = (f"\n🌌 صندوق نهایی فصل ×{fp['chests']} + پاس فصلی ۹۰ روزه + "
+                     f"عنوان «حامی فوودورس» هم روشن شد!")
+        return (f"✅ پرداخت تأیید شد! 🪙 {fp['fc']:,} فودکوین به حسابت ریخته شد."
+                f"{extra}" "\n«موجودی» را ببین.")
     if product in PACKS:
         player.add_item(user_id, f"pack_{product}", 1)
         pk = PACKS[product]
@@ -160,10 +184,15 @@ def _resolve_product(ref: str):
     for pt, ps in PASSES.items():
         if ref in (pt, ps["name"], ps["en"]):
             return pt
+    for fk, fs in FC_PACKS.items():
+        if ref in (fk, fs["name"], fs["en"]):
+            return fk
     return None
 
 
 def _product_name(product: str) -> str:
+    if product in FC_PACKS:
+        return f"{FC_PACKS[product]['emoji']} {FC_PACKS[product]['name']}"
     if product in PACKS:
         return f"{PACKS[product]['emoji']} {PACKS[product]['name']}"
     if product in PASSES:

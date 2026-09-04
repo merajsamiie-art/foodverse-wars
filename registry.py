@@ -30,7 +30,7 @@ UNITS = {
 
 # ─── 🏠 ساختمان‌ها ───
 BUILDINGS = {
-    "factory":  dict(name="کارخانه",       emoji="🏭", desc="سکه در هر ساعت تولید می‌کند", maxlv=10,
+    "factory":  dict(name="کارخانه",       emoji="🏭", desc="فودکوین در هر ساعت تولید می‌کند", maxlv=10,
                      cost0=dict(fc=150, metal=30)),
     "lab":      dict(name="آزمایشگاه",     emoji="🔬", desc="استخراج کریستال", maxlv=10,
                      cost0=dict(fc=200, metal=50)),
@@ -46,6 +46,13 @@ BUILDINGS = {
 
 # ─── 🎒 آیتم‌ها ───
 # kind: booster (مصرفی جنگ/باس) | equip (دائمی، سه اسلات) | material | trophy
+# 💵 ارزش پایه‌ی هر کالا در بازار (فودکوین) — مبنای سقف عقلانیِ قیمت آگهی
+ITEM_VALUE = {
+    "cheese_bomb": 180, "sauce_rocket": 420, "burger_tank": 2500, "pizza_mech": 6000,
+    "crown_meow": 12000, "mega_meat": 900, "golden_cheese": 2200, "toy_crown": 8000,
+    "lasagna_egg": 20000,
+}
+
 ITEMS = {
     # بوسترهای جنگ
     "cheese_bomb":   dict(name="بمب پنیری",   emoji="💣", kind="booster", rarity="common",
@@ -149,6 +156,8 @@ def rarity_tag(iid: str) -> str:
 # ═══════════ 🎨 سیستم ظاهر (Cosmetics) ═══════════
 # kind: frame | title | skin | effect | base_theme | army_skin
 COSMETICS = {
+    # عنوان ویژه
+    "title_patron":  dict(name="حامی فوودورس", en="Foodverse Patron", kind="title", rarity="legend"),
     # فریم پروفایل
     "frame_bronze":   dict(name="فریم برنزی",     en="Bronze Frame",    kind="frame", rarity="common"),
     "frame_silver":   dict(name="فریم نقره‌ای",   en="Silver Frame",    kind="frame", rarity="rare"),
@@ -185,19 +194,19 @@ PACKS = {
                       guaranteed=dict(fc=600, metal=20),
                       pulls=2, odds=dict(common=0.45, rare=0.40, epic=0.13, legendary=0.02, mythic=0.0)),
     # 💰 پک‌های فروشگاه (تومان)
-    "starter_pack": dict(name="پک شروع", en="Starter Pack", emoji="🟢", price_toman=250000,
+    "starter_pack": dict(name="پک شروع", en="Starter Pack", emoji="🟢", price_toman=300000,
                          guaranteed=dict(fc=2500, meat=150, metal=80),
                          pulls=3, odds=dict(common=0.70, rare=0.24, epic=0.05, legendary=0.01, mythic=0.0)),
-    "epic_pack": dict(name="پک حماسی", en="Epic Pack", emoji="🟣", price_toman=750000,
+    "epic_pack": dict(name="پک حماسی", en="Epic Pack", emoji="🟣", price_toman=2000000,
                       guaranteed=dict(fc=8000, crystal=15),
                       pulls=4, odds=dict(common=0.40, rare=0.34, epic=0.21, legendary=0.045, mythic=0.005)),
-    "legend_pack": dict(name="پک افسانه‌ای", en="Legend Pack", emoji="🟠", price_toman=1250000,
+    "legend_pack": dict(name="پک افسانه‌ای", en="Legend Pack", emoji="🟠", price_toman=6000000,
                         guaranteed=dict(fc=15000, crystal=30),
                         pulls=5, odds=dict(common=0.28, rare=0.32, epic=0.28, legendary=0.10, mythic=0.02)),
-    "mythic_chest": dict(name="صندوق اسطوره‌ای", en="Mythic Chest", emoji="👑", price_toman=2000000,
+    "mythic_chest": dict(name="صندوق اسطوره‌ای", en="Mythic Chest", emoji="👑", price_toman=20000000,
                          guaranteed=dict(fc=25000, crystal=50),
                          pulls=5, odds=dict(common=0.15, rare=0.30, epic=0.35, legendary=0.17, mythic=0.03)),
-    "ultimate_chest": dict(name="صندوق نهایی فصل", en="Ultimate Season Chest", emoji="🌌", price_toman=3000000,
+    "ultimate_chest": dict(name="صندوق نهایی فصل", en="Ultimate Season Chest", emoji="🌌", price_toman=60000000,
                            guaranteed=dict(fc=40000, crystal=80),
                            pulls=6, odds=dict(common=0.10, rare=0.25, epic=0.35, legendary=0.24, mythic=0.06)),
 }
@@ -211,15 +220,30 @@ LOOT_TABLES = {
     "mythic":    [("title_mythic", 3), ("fx_thunder", 3), ("lasagna_egg", 2), ("crown_meow", 2)],
 }
 
-# 🎖 جایزه‌ی سکه جایگزین برای کازمتیک تکراری
+# 🎖 جایزه‌ی فودکوین جایگزین برای کازمتیک تکراری
 DUPLICATE_VALUE = dict(common=150, rare=400, epic=1200, legendary=3000, mythic=8000)
 
 
 # ═══════════ 💎 Battle Pass ═══════════
+FC_PACKS = {
+    # کیسه‌های فودکوین — از یک لقمه تا یک امپراتوری 🪙
+    "fc_bite":    dict(name="لقمه‌ی فودکوین",   en="FC Bite",     emoji="🪙", price_toman=300,       fc=2500),
+    "fc_pouch":   dict(name="کیسه‌ی فودکوین",   en="FC Pouch",    emoji="💰", price_toman=1000,      fc=9000),
+    "fc_box":     dict(name="جعبه‌ی فودکوین",   en="FC Box",      emoji="🧰", price_toman=3000,      fc=30000),
+    "fc_safe":    dict(name="گاوصندوق فودکوین", en="FC Safe",     emoji="🔐", price_toman=10000,     fc=110000),
+    "fc_vault":   dict(name="خزانه‌ی فودکوین",  en="FC Vault",    emoji="🏦", price_toman=30000,     fc=350000),
+    "fc_palace":  dict(name="قصر فودکوین",      en="FC Palace",   emoji="🏛", price_toman=100000,    fc=1250000),
+    "fc_titan":   dict(name="غول فودکوین",      en="FC Titan",    emoji="🐉", price_toman=400000,    fc=5500000),
+    "fc_empire":  dict(name="امپراتوری فودکوین", en="FC Empire",  emoji="👑", price_toman=1000000,   fc=15000000),
+    # بسته‌ی افسانه‌ی فصل — پرچم‌دار ۴ میلیون تومانی
+    "legend_bundle": dict(name="بسته‌ی افسانه‌ی فصل", en="Legend Season Bundle", emoji="🌌",
+                          price_toman=4000000, fc=70000000, chests=5, pass_days=90, title="title_patron"),
+}
+
 PASSES = {
-    "weekly":  dict(name="پاس هفتگی",  en="Weekly Pass",  emoji="🥉", price_toman=350000,  days=7),
-    "monthly": dict(name="پاس ماهانه", en="Monthly Pass", emoji="🥈", price_toman=950000,  days=30),
-    "season":  dict(name="پاس فصلی",   en="Season Pass",  emoji="🥇", price_toman=2500000, days=90),
+    "weekly":  dict(name="پاس هفتگی",  en="Weekly Pass",  emoji="🥉", price_toman=8000000,  days=7),
+    "monthly": dict(name="پاس ماهانه", en="Monthly Pass", emoji="🥈", price_toman=25000000, days=30),
+    "season":  dict(name="پاس فصلی",   en="Season Pass",  emoji="🥇", price_toman=60000000, days=90),
 }
 # جوایز هر پله: (رایگان، پرمیوم)
 PASS_REWARDS = {

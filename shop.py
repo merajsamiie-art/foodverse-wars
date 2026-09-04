@@ -1,4 +1,4 @@
-# 🛒 Shop Engine — فروشگاه چرخشی: روزانه/هفتگی + خرید سکه
+# 🛒 Shop Engine — فروشگاه چرخشی: روزانه/هفتگی + خرید فودکوین
 import datetime
 import json
 import random
@@ -48,7 +48,7 @@ def _user_bought(user_id: int, slot: str) -> int:
 def shop_text(user_id: int) -> str:
     p = player.get(user_id)
     d, w = daily_slots(), weekly_slots()
-    lines = [f"🛒 <b>فروشگاه کارخانه</b> — 🪙 {perf.fmt(p['fc'])} سکه", ""]
+    lines = [f"🛒 <b>فروشگاه کارخانه</b> — 🪙 {perf.fmt(p['fc'])} فودکوین", ""]
     lines.append("🕐 <b>امروز</b> (فردا عوض می‌شود):")
     for slot in d:
         lines.append(_slot_line(user_id, slot))
@@ -64,7 +64,7 @@ def _slot_line(user_id: int, slot: str) -> str:
     bought = _user_bought(user_id, slot)
     limit_txt = f" ({bought}/{m['limit']})" if m["limit"] else ""
     name = m.get("pack") and PACKS.get(slot, {}).get("name") or _slot_name(slot)
-    return f"• {name} — 🪙 {m['fc']} سکه{limit_txt}"
+    return f"• {name} — 🪙 {m['fc']} فودکوین{limit_txt}"
 
 
 def _slot_name(slot: str) -> str:
@@ -93,7 +93,7 @@ def buy(user_id: int, slot_ref: str) -> tuple:
     if player.on_cd(user_id, "market"):
         return False, f"⏳ {player.cd_left(user_id, 'market')} ثانیه."
     if p["fc"] < m["fc"]:
-        return False, f"🪙 {m['fc']} سکه لازم است."
+        return False, f"🪙 {m['fc']} فودکوین لازم است."
     with perf.key_lock(("shopbuy", user_id)):
         with db.db().tx():
             player.pay(user_id, dict(fc=m["fc"]))
@@ -109,7 +109,7 @@ def buy(user_id: int, slot_ref: str) -> tuple:
         player.set_cd(user_id, "market", CD_MARKET)
         db.db().ex("INSERT INTO txlog(chat_id, user_id, kind, detail, at) VALUES(NULL,?,?,?,?)",
                    (user_id, "shop_buy", f"{slot}", db.now()))
-        return True, f"🛒 خریدی: {_slot_name(slot)} (−{m['fc']} سکه)"
+        return True, f"🛒 خریدی: {_slot_name(slot)} (−{m['fc']} فودکوین)"
 
 
 def rotate_if_needed():

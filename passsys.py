@@ -79,7 +79,7 @@ def claim(user_id: int, tier: int, track: str) -> tuple:
     for k, v in reward.items():
         if k == "fc":
             player.grant(user_id, fc=v)
-            msgs.append(f"🪙 {v} سکه")
+            msgs.append(f"🪙 {v} فودکوین")
         elif k == "item":
             player.add_item(user_id, f"pack_{v}", 1)
             msgs.append(f"📦 پک {PACKS[v]['name']}")

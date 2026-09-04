@@ -56,13 +56,22 @@ def mk(name, uid):
 # ─── World ───
 def test_world_needs_four():
     world.ensure(CH)
-    for i in range(MIN_PLAYERS - 1):
-        mk(f"p{i}", 3000 + i)
-    n, _, ok = world.try_start(CH)
-    assert not ok
-    mk("چهارم", 3000 + MIN_PLAYERS - 1)
-    n, _, ok = world.try_start(CH)
+    # شروع خودکار با شمارش اعضای گروه
+    ok, wait = world.start_now(CH, MIN_PLAYERS - 1)
+    assert not ok and "عضو" in wait
+    ok, _ = world.start_now(CH, MIN_PLAYERS)
+    assert ok and world.is_started(CH)
+    # دوباره → هنوز روشن است
+    ok, _ = world.start_now(CH, 10)
     assert ok
+
+
+def test_first_boss_guaranteed():
+    world.ensure(CH2 := CH - 1)
+    ok, _ = world.start_now(CH2, 5)
+    assert ok
+    msg = boss.spawn_tick(CH2, force=True, tier=1)
+    assert msg and "مگا برگر" in msg or msg  # تیر۱ = معمولی
 
 
 # ─── Player ───
@@ -565,7 +574,7 @@ def test_boss_escape_loot():
 
 
 def test_infected_capture_and_pool():
-    a = mk("اسیرکننده", 4105)
+    mk("اسیرکننده", 4105)
     player.update(4105, level=15, fc=100000)
     boss.spawn_tick(CH, force=True)
     army.recruit(4105, "pizza", 40)
@@ -633,3 +642,84 @@ def test_infected_expiry_frees_boss():
     pool = _json.loads(P.one("SELECT boss_pool FROM worlds WHERE chat_id=?", (CH,))["boss_pool"])
     assert inf["boss_id"] in pool          # باس آزاد شد
     assert infected.power_bonus(4105) == 0
+
+
+# ─── بسته‌ی بزرگ: شروع خودکار / مثلث برتری / فودکوین / کمکیار / ضدچیت ───
+def test_counter_triangle():
+    mk("فست‌فودی", 5001); mk("شیرینی‌بار", 5002)
+    P.ex("INSERT INTO units(user_id, unit_id, count) VALUES(?,?,?)", (5001, "burger", 10))
+    P.ex("INSERT INTO units(user_id, unit_id, count) VALUES(?,?,?)", (5002, "candy", 10))
+    import war as W
+    bonus, txt = W._counter_bonus(5001, 5002)      # فست‌فود > شیرینی
+    assert bonus > 0.05 and "برتری" in txt
+    bonus2, txt2 = W._counter_bonus(5002, 5001)    # برعکس → ضعف
+    assert bonus2 < -0.05 and "ضعف" in txt2
+    P.ex("DELETE FROM units WHERE user_id=?", (5002,))
+    P.ex("INSERT INTO units(user_id, unit_id, count) VALUES(?,?,?)", (5002, "meow", 10))
+    bonus3, txt3 = W._counter_bonus(5001, 5002)    # میو = خنثی
+    assert bonus3 == 0.0 and txt3 == ""
+
+
+def test_fc_pack_grant_and_bundle():
+    mk("ثروتمند", 5101)
+    fc0 = P.one("SELECT fc FROM accounts WHERE user_id=?", (5101,))["fc"]
+    ok, msg = payments.create_order(5101, "کیسه‌ی فودکوین")
+    assert ok
+    oid = P.one("SELECT order_id FROM orders WHERE user_id=?", (5101,))["order_id"]
+    payments.submit_receipt(5101, "TRK-FC1", "hfc1")
+    ok, o, msg = payments.decide(oid, 8694290031, True)
+    assert ok
+    fc1 = P.one("SELECT fc FROM accounts WHERE user_id=?", (5101,))["fc"]
+    assert fc1 - fc0 == 9000                        # کیسه = ۹k فودکوین
+    # بسته‌ی افسانه: فودکوین + صندوق + پاس + عنوان
+    ok, msg = payments.create_order(5101, "بسته‌ی افسانه‌ی فصل")
+    assert ok
+    oid = P.one("SELECT order_id FROM orders WHERE user_id=? AND status LIKE 'pending%'", (5101,))["order_id"]
+    payments.submit_receipt(5101, "TRK-FC2", "hfc2")
+    ok, o, msg = payments.decide(oid, 8694290031, True)
+    assert ok
+    fc2 = P.one("SELECT fc FROM accounts WHERE user_id=?", (5101,))["fc"]
+    assert fc2 - fc1 == 70000000
+    inv = player.inv(5101)
+    assert inv.get("pack_ultimate_chest") == 5
+    assert P.one("SELECT 1 FROM cosmetics WHERE user_id=? AND cid='title_patron'", (5101,))
+
+
+def test_fc_pack_ladder_pricing():
+    import registry
+    prices = [p["price_toman"] for p in registry.FC_PACKS.values()]
+    assert min(prices) == 300 and max(prices) == 4000000
+    assert prices == sorted(prices)                # پله‌ای صعودی
+    for p in registry.FC_PACKS.values():
+        per_k = p["fc"] / (p["price_toman"] / 1000)   # فودکوین به‌ازای هر ۱۰۰۰ تومان
+        assert 8000 <= per_k <= 18000             # عادلانه و پله‌ای
+
+
+def test_guide_flow():
+    mk("تازه‌کار", 5201)
+    assert player.guide_step(5201) == 0
+    tip = player.advance_guide(5201, "build")      # قدم اشتباه → هیچی
+    assert tip == "" and player.guide_step(5201) == 0
+    tip = player.advance_guide(5201, "daily")      # قدم درست → قدم بعد
+    assert tip and player.guide_step(5201) == 1
+    player.advance_guide(5201, "build")
+    player.advance_guide(5201, "recruit")
+    player.advance_guide(5201, "patrol")
+    tip = player.advance_guide(5201, "boss")
+    assert player.guide_step(5201) == 5            # تمام
+    assert player.advance_guide(5201, "daily") == ""
+
+
+def test_market_anticheat():
+    mk("بازارباز", 5301)
+    player.grant(5301, fc=50000)
+    player.add_item(5301, "cheese_bomb", 5)
+    ok, msg = market.sell_item(5301, CH, "بمب پنیری", 1, 999999)   # قیمت جنون
+    assert not ok and "سقف" in msg
+    ok, msg = market.sell_item(5301, CH, "بمب پنیری", 1, -50)      # منفی
+    assert not ok
+    ok, msg = market.sell_item(5301, CH, "بمب پنیری", 1, 300)
+    assert ok
+    lid = P.one("SELECT id FROM listings WHERE seller_uid=? ORDER BY id DESC", (5301,))["id"]
+    ok, msg = market.buy_listing(5301, CH, lid)                    # خرید خودی
+    assert not ok

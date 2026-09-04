@@ -64,7 +64,7 @@ async def main():
 
     db.init()
     media.ensure_table()
-    eng = events.EventEngine(bot, interval=3600)
+    eng = events.EventEngine(bot, interval=900)
     eng.start()
     log.info("🍔 FOODVERSE WARS ONLINE")
     try:

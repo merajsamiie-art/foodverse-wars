@@ -43,7 +43,7 @@ def odds_text(pack_id: str) -> str:
         if chance > 0:
             lines.append(f"{RARITY[rar][0]} {RARITY[rar][1]}: {chance * 100:.1f}٪")
     g = pk["guaranteed"]
-    gtxt = " ".join(f"🪙 {v} سکه" if k == "fc" else f"{v} {k}" for k, v in g.items())
+    gtxt = " ".join(f"🪙 {v} فودکوین" if k == "fc" else f"{v} {k}" for k, v in g.items())
     lines.append(f"\n🎁 تضمینی: {gtxt}")
     lines.append(f"🎲 قرعه: {pk['pulls']} کشش + شانسِ جبران")
     return "\n".join(lines)
@@ -113,7 +113,7 @@ def open_pack(user_id: int, pack_id: str) -> tuple:
                        (new_pity, user_id))
         # 🎬 نمایش سینمایی
         lines = [f"{pk['emoji']} <b>{pk['name']} باز شد!</b>", ""]
-        gtxt = " ".join(f"🪙 {v} سکه" if k == "fc" else f"{v} {k}" for k, v in pk["guaranteed"].items())
+        gtxt = " ".join(f"🪙 {v} فودکوین" if k == "fc" else f"{v} {k}" for k, v in pk["guaranteed"].items())
         lines.append(f"🎁 تضمینی: {gtxt}")
         lines.append("")
         for rar, txt in results:
@@ -126,13 +126,13 @@ def open_pack(user_id: int, pack_id: str) -> tuple:
 
 
 def _grant_loot(user_id: int, key: str, rar: str) -> tuple:
-    """اعطای جایزه: کازمتیک یا آیتم؛ تکراری → سکه."""
+    """اعطای جایزه: کازمتیک یا آیتم؛ تکراری → فودکوین."""
     if key in COSMETICS:
         owned = db.db().one("SELECT 1 FROM cosmetics WHERE user_id=? AND cid=?", (user_id, key))
         if owned:
             val = DUPLICATE_VALUE.get(rar, 200)
             player.grant(user_id, fc=val)
-            return rar, f"{COSMETICS[key]['name']} (داشتی!) → 🪙 {val} سکه"
+            return rar, f"{COSMETICS[key]['name']} (داشتی!) → 🪙 {val} فودکوین"
         db.db().ex("INSERT OR IGNORE INTO cosmetics(user_id, cid) VALUES(?,?)", (user_id, key))
         c = COSMETICS[key]
         return rar, f"<b>{c['name']}</b>\n{c['en']}"
@@ -143,4 +143,4 @@ def _grant_loot(user_id: int, key: str, rar: str) -> tuple:
     # fallback
     val = DUPLICATE_VALUE.get(rar, 200)
     player.grant(user_id, fc=val)
-    return rar, f"🪙 {val} سکه"
+    return rar, f"🪙 {val} فودکوین"

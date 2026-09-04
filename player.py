@@ -207,7 +207,7 @@ def daily(user_id: int) -> tuple:
         grant(user_id, fc=fc, **{r: DAILY_REWARD_RES for r in BASIC_RES})
         update(user_id, last_daily=t, daily_streak=streak)
         gain_xp(user_id, XP_DAILY)
-        lines.append(f"🎁 جایزه‌ی ورود (استریک {streak}×): 🪙 {fc} سکه + بسته‌ی منابع")
+        lines.append(f"🎁 جایزه‌ی ورود (استریک {streak}×): 🪙 {fc} فودکوین + بسته‌ی منابع")
     missions = [
         ("war_wins", 1, "یک نبرد ببر"),
         ("recruits", 5, "۵ سرباز جذب کن"),
@@ -229,7 +229,7 @@ def daily(user_id: int) -> tuple:
             extra = f" + 📦 {PACKS['free_pack']['name']}"
         db.db().ex("UPDATE daily SET claimed=1 WHERE user_id=? AND day=?", (user_id, day))
         gain_xp(user_id, 50)
-        lines.append(f"📅 <b>مأموریت روزانه کامل!</b> 🪙 +{reward} سکه + 💎 ۳ کریستال{extra}")
+        lines.append(f"📅 <b>مأموریت روزانه کامل!</b> 🪙 +{reward} فودکوین + 💎 ۳ کریستال{extra}")
     elif d["claimed"]:
         lines.append("📅 مأموریت امروز: ✅ تمام شد.")
     else:
@@ -248,7 +248,7 @@ def dtrack(user_id: int, field: str, n: int = 1):
 def reroll_avatar(user_id: int) -> tuple:
     p = get(user_id)
     if p["fc"] < AVATAR_REROLL:
-        return False, f"🪙 تغییر چهره {AVATAR_REROLL} سکه می‌خواهد."
+        return False, f"🪙 تغییر چهره {AVATAR_REROLL} فودکوین می‌خواهد."
     new = random.choice([a for a in AVATARS if a != p["avatar"]])
     update(user_id, fc=p["fc"] - AVATAR_REROLL, avatar=new)
     return True, f"🎭 چهره‌ی جدید: {new}"
@@ -299,3 +299,20 @@ def power_score(p: dict) -> float:
     bld_sum = sum(r["level"] for r in
                   db.db().q("SELECT level FROM buildings WHERE user_id=?", (p["user_id"],)))
     return round(a + p["level"] * 50 + bld_sum * 30 + p["colonies"] * 100, 1)
+
+
+# ═══ کمکیار — قدم‌به‌قدم، بی‌اسپم ═══
+def guide_step(user_id: int) -> int:
+    p = get(user_id)
+    return p["guide_step"] if p and p["guide_step"] else 0
+
+
+def advance_guide(user_id: int, event: str) -> str:
+    """اگر بازیکن همین قدم را انجام داد → قدم بعدی + متنِ قدم بعدی."""
+    from texts import GUIDE_STEPS
+    step = guide_step(user_id)
+    if step >= len(GUIDE_STEPS) or GUIDE_STEPS[step]["ev"] != event:
+        return ""
+    db.db().ex("UPDATE accounts SET guide_step=? WHERE user_id=?", (step + 1, user_id))
+    nxt = GUIDE_STEPS[step + 1] if step + 1 < len(GUIDE_STEPS) else None
+    return "\n\n" + nxt["tip"] if nxt else "\n\n🎓 کمکیار تمام شد — از این بعد خودت قهرمانی!"

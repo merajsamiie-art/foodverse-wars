@@ -8,11 +8,11 @@ from config import PATROL_CD, SHIFT_CD, SHIFT_FC
 SHIFT_FLAVOR = [
     "شیفت شب را تمام کردی. کانوایر هنوز چسبیده به دستت.",
     "۸ ساعت سرپایی. سرپرست اصلاً نگاهت نکرد — عادت کرده.",
-    "جعبه‌ها را مرتب کردی و کسی نفهمید. سکه‌ها فهمیدند.",
+    "جعبه‌ها را مرتب کردی و کسی نفهمید. فودکوین‌ها فهمیدند.",
     "یک شیفتِ ساده. در فوودورس، ساده یعنی زنده موندن.",
 ]
 PATROL_FINDS = [
-    "پشتِ انبار، چند سکه‌ی گم‌شده پیدا کردی.",
+    "پشتِ انبار، چند فودکوین‌ی گم‌شده پیدا کردی.",
     "یک کارتن نیمه‌پر. صاحبش برنمی‌گردد.",
     "موشی جیب‌ها را خالی کرده بود؛ تهِ لانه‌اش را خالی کردی.",
     "لای لوله‌ها چیزی برق زد. مال تو شد.",
@@ -38,7 +38,7 @@ def shift(user_id: int) -> tuple:
     perf.STATS.commands += 1
     from registry import RES_META
     return True, (f"🏭 <b>شیفت تمام شد</b> — {random.choice(SHIFT_FLAVOR)}\n"
-                  f"🪙 {fc} سکه + {RES_META[res]['emoji']} {RES_META[res]['name']} ×{amt}\n"
+                  f"🪙 {fc} فودکوین + {RES_META[res]['emoji']} {RES_META[res]['name']} ×{amt}\n"
                   f"⏰ شیفت بعدی: ۳ ساعت دیگر.")
 
 
@@ -54,7 +54,7 @@ def patrol(user_id: int) -> tuple:
     if roll < 0.55:
         fc = random.randint(40, 160)
         player.grant(user_id, fc=fc)
-        msg = f"🪙 {fc} سکه"
+        msg = f"🪙 {fc} فودکوین"
     elif roll < 0.85:
         res = random.choice(("meat", "cheese", "sauce", "potato", "metal"))
         amt = random.randint(15, 45)
@@ -75,7 +75,7 @@ def patrol(user_id: int) -> tuple:
 
 def text_help() -> str:
     return ("💰 <b>درآمدهای فعالیت</b>\n\n"
-            "🏭 «شیفت» — هر ۳ ساعت، سکه و کمی منبع\n"
+            "🏭 «شیفت» — هر ۳ ساعت، فودکوین و کمی منبع\n"
             "🌙 «گشت» — هر ۴۵ دقیقه، یافته‌های کوچکِ شانسی\n"
             "📅 «روزانه» — جایزه‌ی ورود + شش مأموریت روزانه\n\n"
             "این درآمدها کم هستند؛ کمک می‌کنند، پولدار نمی‌کنند.")

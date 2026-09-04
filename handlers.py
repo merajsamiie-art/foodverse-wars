@@ -90,12 +90,25 @@ async def cmd_start(m: Message):
         return
     player.tick(m.from_user.id)
     player.touch_world(m.chat.id, m.from_user.id)
-    n, names, ok = world.try_start(m.chat.id)
+    try:
+        count = await m.bot.get_chat_member_count(m.chat.id)   # 🤖 خودکار می‌شمارد
+    except Exception:
+        count = 0
+    if world.is_started(m.chat.id):   # دنیا روشن است — بازی هست، هر چند عضو مانده باشد
+        await _send(m, "🌍 دنیای این گروه روشن است — بجنگید! «منو» را بزنید.")
+        return
+    ok, wait_msg = world.start_now(m.chat.id, count)
     if ok:
-        await _send(m, texts.WORLD_START.format(n=n, names=names))
+        await _send(m, texts.WORLD_START.format(n=count))
+        try:   # 🎁 اولین باس: تضمینی و معمولی — شروعِ خفن
+            from boss import spawn_tick
+            bmsg = spawn_tick(m.chat.id, force=True, tier=1)   # تضمینی ولی معمولی
+            if bmsg:
+                await _send(m, bmsg)
+        except Exception:
+            pass
     else:
-        await _send(m, texts.WORLD_WAITING.format(n=n, need=MIN_PLAYERS,
-                                                  names=names, missing=MIN_PLAYERS - n))
+        await _send(m, wait_msg or texts.WORLD_WAITING.format(n=count, need=MIN_PLAYERS))
 
 
 async def cmd_menu(m: Message):
@@ -106,7 +119,12 @@ async def cmd_menu(m: Message):
     p = _guard(m)
     if not p:
         return
-    await _send(m, f"🍔 <b>فوودورس ورز</b>\n{p['avatar']} {p['name']} — منوی فرماندهی:",
+    step = player.guide_step(m.from_user.id)
+    guide = ""
+    if step < len(texts.GUIDE_STEPS):
+        tip = texts.GUIDE_STEPS[step]["tip"].replace("<b>", "").replace("</b>", "")
+        guide = "\n\n" + tip
+    await _send(m, f"🍔 <b>فوودورس ورز</b>\n{p['avatar']} {p['name']} — منوی فرماندهی:{guide}",
                 kb=ui.menu_kb(m.from_user.id))
 
 
@@ -178,6 +196,8 @@ async def cmd_daily(m: Message):
     if not p:
         return
     ok, msg = player.daily(m.from_user.id)
+    if ok:
+        msg += player.advance_guide(m.from_user.id, "daily")
     await _send(m, msg)
 
 
@@ -197,6 +217,8 @@ async def cmd_upgrade(m: Message, ref: str):
         await _send(m, "🏠 " + " | ".join(f"{v['emoji']} {v['name']}" for v in BUILDINGS.values()))
         return
     ok, msg = base.upgrade(m.from_user.id, bid)
+    if ok:
+        msg += player.advance_guide(m.from_user.id, "build")
     await _send(m, msg)
 
 
@@ -238,7 +260,10 @@ async def cmd_recruit(m: Message, ref: str, count: str):
         await _send(m, "🪖 " + " | ".join(f"{u['emoji']} {u['name']}" for u in UNITS.values() if u.get("cost")))
         return
     n = int(count) if count.isdigit() else 1
-    await _send(m, army.recruit(m.from_user.id, uid, n)[1])
+    ok, msg = army.recruit(m.from_user.id, uid, n)
+    if ok:
+        msg += player.advance_guide(m.from_user.id, "recruit")
+    await _send(m, msg)
 
 
 # ═══════════ جنگ / باس ═══════════
@@ -289,6 +314,8 @@ async def cmd_boss(m: Message):
     if not p:
         return
     ok, msg = boss.attack(m.from_user.id, m.chat.id)
+    if ok:
+        msg += player.advance_guide(m.from_user.id, "boss")
     await _send(m, msg, feed=True)
 
 
@@ -296,14 +323,20 @@ async def cmd_shift(m: Message):
     p = _guard(m)
     if not p:
         return
-    await _send(m, income.shift(m.from_user.id)[1])
+    ok, msg = income.shift(m.from_user.id)
+    if ok:
+        msg += player.advance_guide(m.from_user.id, "patrol")
+    await _send(m, msg)
 
 
 async def cmd_patrol(m: Message):
     p = _guard(m)
     if not p:
         return
-    await _send(m, income.patrol(m.from_user.id)[1])
+    ok, msg = income.patrol(m.from_user.id)
+    if ok:
+        msg += player.advance_guide(m.from_user.id, "patrol")
+    await _send(m, msg)
 
 
 async def cmd_infect(m: Message):
@@ -838,7 +871,11 @@ async def _admin_callback(c: CallbackQuery):
 
 # ═══════════ راهنما ═══════════
 async def cmd_help(m: Message):
-    await _send(m, texts.HELP)
+    step = player.guide_step(m.from_user.id) if m.from_user else 0
+    extra = ""
+    if step < len(texts.GUIDE_STEPS):
+        extra = "\n\n" + texts.GUIDE_STEPS[step]["tip"]
+    await _send(m, texts.HELP + extra)
 
 
 # ═══════════ توزیع‌کننده‌ی دستورها — بدون پیشوند؛ خود کلمه = دستور ═══════════
@@ -1030,6 +1067,24 @@ async def on_text(m: Message):
 
 
 # ═══════════ Slash mirror ═══════════
+async def on_member_join(m: Message):
+    """بات به گروهی اضافه شد → توضیح کوتاه و ساده."""
+    if not m.new_chat_members or not any(u.id == m.bot.id for u in m.new_chat_members):
+        return
+    try:
+        count = await m.bot.get_chat_member_count(m.chat.id)
+    except Exception:
+        count = 0
+    if count >= MIN_PLAYERS:
+        await _send(m, "🍔 <b>فوودورس به گروه شما آمد!</b>\n\n"
+                       "جنگ بامزه‌ی غذاها همین‌جا شروع می‌شود.\n"
+                       "یکی از اعضا فقط یک کلمه بنویسد: <b>شروع</b> \U0001F525")
+    else:
+        await _send(m, f"🍔 <b>فوودورس به گروه شما آمد!</b>\n\n"
+                       f"برای شروع بازی، گروه باید حداقل {MIN_PLAYERS} عضو داشته باشد "
+                       f"(الان {count} نفرید). دوست اضافه کنید و بنویسید: <b>شروع</b>")
+
+
 def reg_slash(r: Router):
     r.message.register(cmd_start, CommandStart())
     r.message.register(cmd_help, Command("help"))
@@ -1045,6 +1100,7 @@ def reg_slash(r: Router):
     r.message.register(cmd_ally_wrap, Command("ally"))
     r.message.register(cmd_top_wrap, Command("top"))
     r.message.register(on_photo, F.photo)
+    r.message.register(on_member_join, F.new_chat_members)
 
 
 async def _rest(m: Message) -> str:

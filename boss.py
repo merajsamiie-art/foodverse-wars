@@ -52,12 +52,12 @@ def _expire_loot(chat_id: int, w: dict) -> str:
         share = int((25 + r["dmg"] * 0.03) * (1 + BOSS_TIER_LOOT * (tier - 1)))
         if share > 0:
             player.grant(r["user_id"], fc=share)
-            lines.append(f"🪙 {r['avatar']} {r['name']} — {share:,} سکه (آسیب {r['dmg']:,.0f})")
+            lines.append(f"🪙 {r['avatar']} {r['name']} — {share:,} فودکوین (آسیب {r['dmg']:,.0f})")
     db.db().ex("DELETE FROM boss_dmg WHERE chat_id=? AND boss_id=?", (chat_id, bid))
     return "\n".join(lines)
 
 
-def spawn_tick(chat_id: int, force: bool = False) -> str | None:
+def spawn_tick(chat_id: int, force: bool = False, tier: int | None = None) -> str | None:
     ch = db.db().one("SELECT * FROM worlds WHERE chat_id=?", (chat_id,))
     if not ch or not ch["started"]:
         return None
@@ -85,7 +85,8 @@ def spawn_tick(chat_id: int, force: bool = False) -> str | None:
         pool = list(BOSSES)
     bid = random.choice(pool)
     b = BOSSES[bid]
-    tier = 3 if force else _tier(chat_id)         # اسپاون اجباری ادمین = کابوس
+    if tier is None:
+        tier = 3 if force else _tier(chat_id)     # اسپاون اجباری ادمین = کابوس
     hp = round(b["hp"] * (1 + BOSS_TIER_HP * (tier - 1)))
     db.db().ex("""UPDATE worlds SET boss_id=?, boss_hp=?, boss_max_hp=?, boss_until=?,
                   boss_tier=? WHERE chat_id=?""",
@@ -170,13 +171,13 @@ def _finish(chat_id: int, boss_id: str, last_uid: int) -> str:
                     * (1.5 if i == 0 else 1.0) * loot_mult)
         player.grant(r["user_id"], fc=share)
         tag = "🥇" if i == 0 else ("🥈" if i == 1 else "🥉")
-        lines.append(f"{tag} {r['avatar']} {r['name']} — آسیب {r['dmg']:,.0f} → 🪙 {share:,} سکه")
+        lines.append(f"{tag} {r['avatar']} {r['name']} — آسیب {r['dmg']:,.0f} → 🪙 {share:,} فودکوین")
         seen.add(r["user_id"])
     if last_uid not in seen:
         lp = player.get(last_uid)
         if lp:
             player.grant(last_uid, fc=int(lo * 0.8 * loot_mult))
-            lines.append(f"🎯 ضربه‌ی آخر: {lp['avatar']} {lp['name']} → 🪙 {int(lo * 0.8 * loot_mult):,} سکه")
+            lines.append(f"🎯 ضربه‌ی آخر: {lp['avatar']} {lp['name']} → 🪙 {int(lo * 0.8 * loot_mult):,} فودکوین")
     if random.random() < 0.65:
         drop = random.choice(b["loot"]["drops"])
         player.add_item(rows[0]["user_id"], drop, 1)
