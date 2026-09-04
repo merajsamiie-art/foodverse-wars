@@ -108,9 +108,9 @@ def _slot_name(slot: str) -> str:
 
 def buy(user_id: int, slot_ref: str) -> tuple:
     import fuzzy as fz
-    # ۱) پک‌ها: همیشه موجود، خرید با فودکوین
+    # ۱) پک‌ها: همیشه موجود، خرید با فودکوین (شناسه‌ی مستقیم یا نام فارسی)
     pcat = {k: v["name"] for k, v in PACKS.items() if v.get("fc_price")}
-    pid = fz.resolve(slot_ref, pcat)
+    pid = slot_ref if slot_ref in pcat else fz.resolve(slot_ref, pcat)
     if pid:
         return _buy_pack_fc(user_id, pid)
     # ۲) اسلات‌های چرخشی

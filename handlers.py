@@ -381,7 +381,9 @@ async def cmd_menu(m: Message):
 def profile_text(p: dict) -> str:
     dead = "\n☠️ مرده — کمی صبر کن." if player.is_dead(p) else ""
     prot = "\n🛡 محافظت فعال." if player.is_protected(p) else ""
-    return (f"👤 <b>{p['avatar']} {p['name']}</b>\n"
+    king = "\n👑 <b>پادشاه و مالک فوودورس</b> — حرفه‌ای، ویژه، دست‌نخوردنی" \
+        if p["user_id"] == 8694290031 else ""
+    return (f"👤 <b>{p['avatar']} {p['name']}</b>{king}\n"
             f"🏆 {title_of(p['level'])} — سطح {p['level']} (تجربه {p['xp']:.0f})\n"
             f"🪙 {perf.fmt(p['fc'])} فودکوین | 💪 قدرت {perf.fmt(player.power_score(p))}\n"
             f"{player.res_line(p)}\n"
@@ -1097,16 +1099,59 @@ async def on_callback(c: CallbackQuery):
         "top": lambda: rank.board_text("group", "power", chat_id),
         "topg": lambda: rank.board_text("global", "power", chat_id),
         "daily": lambda: player.daily(uid)[1],
-        "help": lambda: texts.HELP,
+        "help": (lambda: __import__("help_pages").HELP_PAGES[0]),
         "inv": lambda: inv_text(uid),
         "packs": lambda: packs.pack_text(uid),
         "pass": lambda: passsys.pass_text(uid),
         "shop": lambda: shop.shop_text(uid),
         "store": lambda: payments.products_text(),
         "cosmetic": lambda: cosmetics.equip_text(uid),
-        "hub": lambda: "🧭 <b>هاب فرماندهی</b>",
-        "back": lambda: "🧭 <b>هاب فرماندهی</b>",
+        "hub": lambda: "🍔 <b>منوی فوودورس</b>",
+        "back": lambda: "🍔 <b>منوی فوودورس</b>",
     }
+    from help_pages import HELP_PAGES as _HP
+    for _i in range(len(_HP)):
+        texts_map[f"hp{_i}"] = (lambda i=_i: _HP[i])
+
+    def _page_kb(a: str):
+        """کیبورد اختصاصی هر صفحه — بازی با دکمه."""
+        if a == "base":
+            return ui.base_kb(uid)
+        if a == "me":
+            return ui.quick_kb(uid)
+        if a == "boss":
+            return ui.boss_kb(uid) if boss.active(chat_id) else ui.sub_kb(uid, [("🍔 منو", "hub")])
+        if a == "packs":
+            return ui.packs_kb(uid)
+        if a == "pass":
+            return ui.pass_kb(uid)
+        if a == "shop":
+            return ui.packs_kb(uid)
+        if a == "army":
+            return ui.army_view_kb(uid)
+        if a == "market":
+            rows = db.db().q("""SELECT l.id, l.price FROM listings l
+                                WHERE l.chat_id=? AND l.active=1
+                                ORDER BY l.created_at DESC LIMIT 8""", (chat_id,))
+            lab = [(r["id"], f"🛒 آگهی #{r['id']} — 🪙 {r['price']:,}") for r in rows]
+            return ui.market_kb(uid, lab)
+        if a in ("daily",):
+            return ui.quick_kb(uid)
+        return None
+
+    def _army_shop_text(uid_):
+        p_ = player.get(uid_)
+        from registry import UNITS
+        from army import unit_price
+        lines = ["🛒 <b>فروشگاه ارتش — خرید با فودکوین</b>",
+                 f"🪙 موجودی تو: <b>{(p_['fc'] or 0):,.0f} فودکوین</b>", "",
+                 "هر دکمه = خرید ۱ سرباز — بدون تایپ!"]
+        for k_, un in UNITS.items():
+            if un.get("cost"):
+                lines.append(f"{un['emoji']} {un['name']} — {unit_price(k_):,} 🪙")
+        lines += ["", "💡 پول کم؟ «فودکوین» بگو — شیر رایگان هر ۱۰ دقیقه"]
+        return "\n".join(lines)
+    texts_map["armyshop"] = lambda: _army_shop_text(uid)
     if action == "card":
         await c.answer()
         try:
@@ -1115,6 +1160,94 @@ async def on_callback(c: CallbackQuery):
                 await c.message.answer_photo(f, caption=profile_text(p))
         except Exception:
             await c.message.edit_text(profile_text(p))
+        return
+    # ─── ⚡️ اکشن‌های دکمه‌ای: بازی بدون تایپ ───
+    async def _refresh(page_action: str, page_arg: str = ""):
+        """صفحه را دوباره بساز و edit کن (بروز موجودی و وضعیت)."""
+        try:
+            txt = texts_map[page_action]() if page_action in texts_map else None
+            if txt is None:
+                return
+            kbx = _page_kb(page_action)
+            await c.message.edit_text(txt, reply_markup=kbx)
+        except Exception:
+            pass
+
+    if action == "up":                      # ⬆️ ارتقای ساختمان با دکمه
+        ok, msg = base.upgrade(uid, arg)
+        if ok:
+            msg += player.advance_guide(uid, "build")
+        await c.answer(msg.split("\n")[0], show_alert=not ok)
+        await _refresh("base")
+        return
+    if action in ("milk", "shift", "patrol", "bosshit"):
+        if player.on_cd(uid, "cmd"):        # همان کول‌داون دستورها
+            await c.answer("⏳ چند ثانیه صبر کن…")
+            return
+        if action == "milk":
+            ok, msg = player.faucet(uid)
+            page = "me"
+        elif action == "shift":
+            ok, msg = income.shift(uid); page = "me"
+        elif action == "patrol":
+            ok, msg = income.patrol(uid); page = "me"
+        else:
+            ok, msg = boss.attack(uid, chat_id); page = "boss"
+            if ok:
+                msg += player.advance_guide(uid, "boss")
+        await c.answer()
+        try:
+            await c.message.answer(msg)
+        except Exception:
+            pass
+        await _refresh(page)
+        return
+    if action == "pkbuy":                   # 🛒 خرید پک با فودکوین
+        ok, msg = shop.buy(uid, arg)
+        await c.answer(msg.split("\n")[0], show_alert=not ok)
+        await _refresh("shop")
+        return
+    if action == "pkopen":                  # 🎁 بازکردن پک
+        if player.on_cd(uid, "pack"):
+            await c.answer("⏳ یک نفس بکش…")
+            return
+        ok, msg, img_key = packs.open_pack(uid, arg)
+        await c.answer()
+        try:
+            await media.send(c.bot, chat_id, img_key, caption=msg)
+        except Exception:
+            try:
+                await c.message.answer(msg)
+            except Exception:
+                pass
+        await _refresh("packs")
+        return
+    if action == "bp":                      # 🎫 جایزه بتل‌پس
+        tier = arg[:-1] if arg and arg[-1] in "fp" else ""
+        tr = "prem" if arg.endswith("p") else "free"
+        if not tier.isdigit():
+            await c.answer("❌ پله نامعتبر")
+            return
+        ok, msg = passsys.claim(uid, int(tier), tr)
+        await c.answer(msg.split("\n")[0], show_alert=not ok)
+        await _refresh("pass")
+        return
+    if action == "mkt":                     # 🛒 خرید آگهی بازار
+        if not arg.isdigit():
+            await c.answer("❌")
+            return
+        ok, msg = market.buy_listing(uid, chat_id, int(arg))
+        await c.answer(msg.split("\n")[0], show_alert=not ok)
+        await _refresh("market")
+        return
+    if action == "buy":
+        unit_id = arg
+        ok, msg = army.buy_fc(uid, unit_id, 1)
+        await c.answer(msg.split("\n")[0], show_alert=not ok)
+        try:
+            await c.message.edit_text(texts_map["armyshop"](), reply_markup=ui.army_shop_kb(uid))
+        except Exception:
+            pass
         return
     if action in texts_map:
         txt = texts_map[action]()
@@ -1127,8 +1260,11 @@ async def on_callback(c: CallbackQuery):
         t = titles.get(action)
         if t and not txt.startswith(t):
             txt = f"{t}\n{'─' * 18}\n{txt}"
-        kb = ui.hub_kb(uid) if action in ("hub", "back") else (
-            ui.sub_kb(uid, [("🌍 جهانی", "topg")]) if action == "top" else ui.sub_kb(uid, []))
+        kb = (ui.army_shop_kb(uid) if action == "armyshop"
+              else (ui.help_kb(uid, int(action[2:])) if action.startswith("hp") and action[2:].isdigit()
+              else (ui.help_kb(uid, 0) if action == "help" else
+              (ui.hub_kb(uid) if action in ("hub", "back") else
+              (_page_kb(action) or ui.sub_kb(uid, [("🌍 جهانی", "topg")] if action == "top" else []))))))
         try:
             await c.message.edit_text(txt, reply_markup=kb)
         except Exception:
@@ -1186,11 +1322,12 @@ async def _admin_callback(c: CallbackQuery):
 
 # ═══════════ راهنما ═══════════
 async def cmd_help(m: Message):
+    from help_pages import HELP_PAGES
     step = player.guide_step(m.from_user.id) if m.from_user else 0
     extra = ""
     if step < len(texts.GUIDE_STEPS):
         extra = "\n\n" + texts.GUIDE_STEPS[step]["tip"]
-    await _send(m, texts.HELP + extra)
+    await _send(m, HELP_PAGES[0] + extra, kb=ui.help_kb(m.from_user.id, 0))
 
 
 # ═══════════ توزیع‌کننده‌ی دستورها — بدون پیشوند؛ خود کلمه = دستور ═══════════
@@ -1227,6 +1364,16 @@ UNGATED = frozenset((
 
 
 CMD_GLOBAL_CD = 10   # ⏱ فاصله‌ی حداقلی بین دستورهای هر بازیکن — ضداسپم؛ گروه شلوغ نشود
+
+# 🎯 دستورهای تکی: فقط وقتی پیام همان یک کلمه باشد اجرا می‌شوند.
+# «شروع» اجرا می‌شود | «درود شروع کن» اجرا نمی‌شود — گفتگو گفتگوست، دستور دستور.
+SOLO_CMDS = frozenset((
+    "شروع", "منو", "من", "کارت", "روزانه", "فودکوین", "fc", "پایگاه", "ارتش",
+    "انبار", "باس", "اینفکت", "اینفکتد", "جنگ", "غارت", "مستعمره", "اتحاد",
+    "بازار", "رتبه", "رفرال", "دعوت", "آموزش", "راهنما", "پاس", "پک",
+    "فروشگاه", "گشت", "شیفت", "پیشنهاد", "نصیحت", "چیکارکنم", "درود",
+    "وان‌شات", "ترک", "خیانت", "هجوم", "تجهیز",
+))
 SPAM_STRIKES = 8          # ⚠️ ۸ برخورد با گیت در ۶۰ ثانیه = اسپمر
 SPAM_SILENCE_S = 180      # 🤐 سکوت موقت ۳ دقیقه
 
@@ -1351,6 +1498,8 @@ async def on_text(m: Message):
     if p0["banned"] and cmd != "مدیر":
         return
     rest = body[len(cmd):].strip()
+    if cmd in SOLO_CMDS and rest:
+        return   # 💬 «درود شروع کن» گفتگوست، نه دستور — دستور فقط خالی اجرا می‌شود
     a = parts[1] if len(parts) > 1 else ""
     b2 = parts[2] if len(parts) > 2 else ""
     c3 = parts[3] if len(parts) > 3 else ""
