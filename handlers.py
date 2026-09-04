@@ -755,8 +755,16 @@ async def on_text(m: Message):
     if not m.text or (m.from_user and m.from_user.is_bot):
         return
     text = m.text.strip()
+    # ─── آینه‌ی اسلش: /جنگ x → fw جنگ x (حتی با privacy mode کار می‌کند) ───
     if text.startswith("/"):
-        return
+        first, _, tail = text[1:].partition(" ")
+        first = first.split("@", 1)[0]        # فقط /cmd@BotName
+        if not first or (not tail and first in ("start", "help", "menu",
+                                                "daily", "base", "army", "boss",
+                                                "inv", "packs", "pass", "shop",
+                                                "ally", "top")):
+            return   # دستورات ثبت‌شده‌ی رسمی و اسلشِ تنها
+        text = ("fw " + first + " " + tail).strip()
     hit = next((p for p in PREFIXES if text.startswith(p)), None)
     if not hit:
         # «fw» تنها
