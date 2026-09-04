@@ -16,6 +16,8 @@ import boss
 import cardgen
 import cosmetics
 import craft
+import income
+import infected
 import market
 import media
 import packs
@@ -288,6 +290,53 @@ async def cmd_boss(m: Message):
         return
     ok, msg = boss.attack(m.from_user.id, m.chat.id)
     await _send(m, msg, feed=True)
+
+
+async def cmd_shift(m: Message):
+    p = _guard(m)
+    if not p:
+        return
+    await _send(m, income.shift(m.from_user.id)[1])
+
+
+async def cmd_patrol(m: Message):
+    p = _guard(m)
+    if not p:
+        return
+    await _send(m, income.patrol(m.from_user.id)[1])
+
+
+async def cmd_infect(m: Message):
+    p = _guard(m)
+    if not p:
+        return
+    ok, msg = infected.capture(m.from_user.id, m.chat.id)
+    await _send(m, msg, feed=ok)
+
+
+async def cmd_infected(m: Message):
+    p = _guard(m)
+    if not p:
+        return
+    await _send(m, infected.status(m.from_user.id)[1])
+
+
+async def cmd_inf_raid(m: Message):
+    p = _guard(m)
+    if not p:
+        return
+    if not m.reply_to_message or not m.reply_to_message.from_user:
+        await _send(m, "🧟 روی پیام هدف ریپلای کن و «fw هجوم» بزن.")
+        return
+    if m.reply_to_message.from_user.id == m.bot.id:
+        await _send(m, "🧟 اینفکتدت از ربات می‌ترسد. عاقلانه است.")
+        return
+    d = player.get(m.reply_to_message.from_user.id)
+    if not d:
+        await _send(m, "🎯 او هنوز بازیکن نیست — «fw شروع» را بهش بگو.")
+        return
+    ok, msg = infected.raid(m.from_user.id, d["user_id"])
+    await _send(m, msg, feed=ok)
 
 
 # ═══════════ ساخت / انبار ═══════════
@@ -798,7 +847,8 @@ PREFIXES = ("fw ", "FW ")
 GROUP_CMDS = ("شروع", "منو", "من", "پایگاه", "ارتقا", "مستعمره", "غارت", "ارتش", "جذب",
               "جنگ", "باس", "ساخت", "انبار", "تجهیز", "بازار", "فروشگاه", "بفروش",
               "برداشتن", "قیمت", "اتحاد", "تأسیس", "عضویت", "ترک", "کمک", "خیانت",
-              "رتبه", "شخصیت", "بازکردن", "مدیر")
+              "رتبه", "شخصیت", "بازکردن", "مدیر", "اینفکت", "اینفکتد", "هجوم",
+              "شیفت", "گشت")
 
 
 async def on_text(m: Message):
@@ -854,7 +904,8 @@ async def on_text(m: Message):
     in_group = m.chat.type != "private"
     # گیم‌پلی گروهی در پیوی → هدایت
     GAMEPLAY = ("شروع", "پایگاه", "ارتقا", "مستعمره", "غارت", "جذب", "جنگ", "باس",
-                "بازار", "بفروش", "برداشتن", "تأسیس", "عضویت", "خیانت")
+                "بازار", "بفروش", "برداشتن", "تأسیس", "عضویت", "خیانت",
+                "اینفکت", "هجوم")
     if not in_group and cmd in GAMEPLAY:
         me = await m.bot.get_me()
         await m.answer("⚔️ بازی اصلی در گروه‌ها اجرا می‌شود!",
@@ -893,6 +944,16 @@ async def on_text(m: Message):
         await cmd_war(m)
     elif cmd == "باس":
         await cmd_boss(m)
+    elif cmd == "شیفت":
+        await cmd_shift(m)
+    elif cmd == "گشت":
+        await cmd_patrol(m)
+    elif cmd == "اینفکت":
+        await cmd_infect(m)
+    elif cmd == "اینفکتد":
+        await cmd_infected(m)
+    elif cmd == "هجوم":
+        await cmd_inf_raid(m)
     elif cmd == "شخصیت":
         await cmd_char(m, rest)
     elif cmd == "ساخت":

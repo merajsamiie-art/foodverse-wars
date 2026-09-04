@@ -15,6 +15,10 @@ DB_PATH = os.environ.get("FW_DB_PATH", os.path.join(os.path.dirname(__file__), "
 # ─── شروع ───
 START_FC = 500
 START_RES = dict(meat=120, cheese=100, sauce=100, potato=100, metal=50, crystal=0)
+import zoneinfo
+
+TZ = zoneinfo.ZoneInfo("Asia/Tehran")   # ⏰ همه‌ی ریست‌ها و نمایش‌ها به وقت تهران
+
 MIN_PLAYERS = 4                    # حداقل عضو برای روشن شدن دنیای گروه
 AVATAR_REROLL = 200
 
@@ -115,3 +119,22 @@ ALLY_MAX = 30                 # ظرفیت اعضا
 ALLY_HELP_CD = 3600           # کول‌داون کمک به هم‌اتاقی (ثانیه)
 BETRAY_CD = 7 * 24 * 3600     # کول‌داون خیانت (۷ روز)
 BETRAY_STEAL_CAP = 0.3        # سقف دزدی از خزانه در خیانت (۳۰٪)
+
+# ── 💰 درآمدهای خردِ فعالیتی (عمداً کوچک — انگیزه، نه چاپ‌سکه) ──
+SHIFT_CD = 3 * 3600                # شیفت کارخانه: هر ۳ ساعت
+SHIFT_FC = (120, 280)
+PATROL_CD = 45 * 60                # گشت محوطه: هر ۴۵ دقیقه
+
+# ── 🧟 اینفکتد ──
+INFECTED_COST_FC = 1500            # هزینه‌ی اسیرکردن باس
+INFECTED_LEVEL = 10                # حداقل سطح
+INFECTED_TTL = 3 * 24 * 3600       # هر ۳ روز باید تازه شود
+INFECTED_WINDOW = 10 * 60          # پنجره‌ی اسیرکردن بعد از کشتن باس
+INFECTED_RAID_CD = 12 * 3600       # هجوم: هر ۱۲ ساعت
+INFECTED_CONTROL_H = {1: 4, 2: 8, 3: 12}   # مدت کنترل قربانی (ساعت، بر اساس تیر)
+INFECTED_CONTROL_TAX = 0.15        # ۱۵٪ تولید قربانی به کنترل‌کننده می‌رسد
+INFECTED_POWER_BONUS = 0.08        # بونوس قدرت ارتش به‌ازای تیر
+
+# ── 👹 تیرهای باس ──
+BOSS_TIER_HP = 0.75                # هر تیر: +۷۵٪ جان
+BOSS_TIER_LOOT = 0.6               # هر تیر: +۶۰٪ جایزه

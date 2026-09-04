@@ -83,6 +83,7 @@ def npc_buy(user_id: int, res: str, qty: int) -> tuple:
         _shift_price(res, PRICE_STEP * (qty / 100 + 0.3))
     player.set_cd(user_id, "market", CD_MARKET)
     _log(None, user_id, "npc_buy", f"{res}x{qty}={price}")
+    player.dtrack(user_id, "bought")
     return True, f"🏦 خریدی: {RES_META[res]['emoji']} {RES_META[res]['name']} ×{qty} (−{price} FC)"
 
 
@@ -99,6 +100,7 @@ def npc_sell(user_id: int, res: str, qty: int) -> tuple:
         player.grant(user_id, fc=gain)
         _shift_price(res, -PRICE_STEP * (qty / 100 + 0.3))
     player.set_cd(user_id, "market", CD_MARKET)
+    player.dtrack(user_id, "sold")
     _log(None, user_id, "npc_sell", f"{res}x{qty}=+{gain}")
     return True, f"🏦 فروختی: {RES_META[res]['emoji']} ×{qty} (+{gain} FC)"
 

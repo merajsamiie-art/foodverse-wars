@@ -9,6 +9,11 @@ from config import DB_PATH
 
 SCHEMA = """
 -- 🌍 دنیاها (هر گروه = یک دنیا)
+-- 🧟 اینفکتد: باس اسیرشده توسط بازیکن (هر ۳ روز باید تازه شود)
+CREATE TABLE IF NOT EXISTS infected(
+  user_id INTEGER PRIMARY KEY, boss_id TEXT, tier INTEGER DEFAULT 1,
+  world_chat INTEGER, captured_at REAL, expires_at REAL, raid_cd REAL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS worlds(
   chat_id INTEGER PRIMARY KEY,
   started INTEGER DEFAULT 0,
@@ -81,6 +86,7 @@ CREATE TABLE IF NOT EXISTS daily(
   war_wins INTEGER DEFAULT 0, recruits INTEGER DEFAULT 0,
   crafted INTEGER DEFAULT 0, boss_hits INTEGER DEFAULT 0,
   claimed INTEGER DEFAULT 0, shop_buys TEXT DEFAULT '{}',
+  sold INTEGER DEFAULT 0, bought INTEGER DEFAULT 0,
   PRIMARY KEY(user_id, day)
 );
 -- 💳 سفارش‌های پرداخت
@@ -128,7 +134,22 @@ class DB:
         self.conn.execute("PRAGMA mmap_size=134217728")
         with self.lock:
             self.conn.executescript(SCHEMA)
+            self._migrate()
             self.conn.commit()
+
+    def _migrate(self):
+        """ستون‌های جدید روی دیتابیس زنده — ALTER امن، بدون از دست رفتن داده."""
+        adds = {
+            "worlds": {"boss_tier": "INTEGER DEFAULT 1", "boss_pool": "TEXT DEFAULT ''"},
+            "accounts": {"controlled_by": "INTEGER DEFAULT 0",
+                         "controlled_until": "REAL DEFAULT 0"},
+            "daily": {"sold": "INTEGER DEFAULT 0", "bought": "INTEGER DEFAULT 0"},
+        }
+        for tbl, cols in adds.items():
+            have = {r[1] for r in self.conn.execute(f"PRAGMA table_info({tbl})")}
+            for col, ddl in cols.items():
+                if col not in have:
+                    self.conn.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {ddl}")
 
     def q(self, sql, params=()):
         with self.lock:

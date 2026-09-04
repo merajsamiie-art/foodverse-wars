@@ -2,6 +2,7 @@
 import datetime
 import random
 
+import config
 import db
 import perf
 from config import (START_FC, START_RES, PROD_BASE, FACTORY_FC_H, LAB_CRYSTAL_H,
@@ -61,7 +62,8 @@ def touch_world(chat_id: int, user_id: int):
 
 
 def today() -> str:
-    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    """روزِ تقویمی به وقت تهران — ریست روزانه، مأموریت و فروشگاه همه با این."""
+    return datetime.datetime.now(config.TZ).strftime("%Y-%m-%d")
 
 
 # ─── تولید lazy (حساب جهانی) ───
@@ -83,7 +85,26 @@ def tick(user_id: int) -> None:
                                  + colony_mult * COLONY_FC_H) * h, 1)
     upd["crystal"] = round(p["crystal"] + bld.get("lab", 0) * LAB_CRYSTAL_H * h, 1)
     upd["last_active"] = now()
+    # 🧟 کنترل اینفکتد: بخشی از تولید به کنترل‌کننده می‌رسد
+    if (p["controlled_by"] or 0) and (p["controlled_until"] or 0) > now():
+        tax = {}
+        for k in ("fc",) + BASIC_RES:
+            delta = upd[k] - p[k]
+            t_amt = round(delta * config.INFECTED_CONTROL_TAX, 1)
+            if t_amt > 0:
+                upd[k] = round(upd[k] - t_amt, 1)
+                tax[k] = t_amt
+        if tax:
+            update(user_id, **upd)
+            grant(p["controlled_by"], **tax)
+            update_control_log(user_id, sum(tax.values()))
+            return
     update(user_id, **upd)
+
+
+def update_control_log(user_id: int, amount: float):
+    db.db().ex("INSERT INTO txlog(chat_id, user_id, kind, detail, at) VALUES(?,?,?,?,?)",
+               (0, user_id, "control_tax", f"{amount:.1f}", now()))
 
 
 # ─── XP / لِوِل ───
@@ -192,6 +213,8 @@ def daily(user_id: int) -> tuple:
         ("recruits", 5, "۵ سرباز جذب کن"),
         ("crafted", 1, "یک ساخته‌ی کارگاهی"),
         ("boss_hits", 2, "۲ بار به باس بزن"),
+        ("sold", 1, "یک بار به صرافی بفروش"),
+        ("bought", 1, "یک بار از صرافی خرید کن"),
     ]
     done = all((d[k] or 0) >= g for k, g, _ in missions)
     if done and not d["claimed"]:

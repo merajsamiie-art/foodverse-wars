@@ -121,7 +121,9 @@ def declare(attacker_uid: int, defender_uid: int) -> tuple:
             player.update(loser, **upd)
             player.grant(winner, fc=fc_steal, **steal)
 
-        # 💀 مرگ بازنده
+        # 💀 مرگ بازنده + شکستن کنترل‌های اینفکتدش
+        import infected
+        infected.break_control_of(loser)
         death = player.die(loser, killer_name=player.get(winner)["name"])
         Wn = player.get(winner)
         player.update(winner, wins=Wn["wins"] + 1)

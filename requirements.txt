@@ -3,3 +3,4 @@ pillow>=10
 arabic-reshaper>=3
 python-bidi>=0.4
 
+tzdata>=2024.1

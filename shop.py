@@ -6,16 +6,17 @@ import random
 import db
 import perf
 import player
+import config
 from config import CD_MARKET, SHOP_DAILY_SIZE, SHOP_WEEKLY_SIZE
 from registry import SHOP_POOL, PACKS
 
 
 def _day() -> str:
-    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    return datetime.datetime.now(config.TZ).strftime("%Y-%m-%d")
 
 
 def _week() -> str:
-    return datetime.datetime.now(datetime.UTC).strftime("%G-W%V")
+    return datetime.datetime.now(config.TZ).strftime("%G-W%V")
 
 
 def _rotated(key: str, size: int, salt: str) -> list:

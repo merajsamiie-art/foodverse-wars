@@ -15,6 +15,8 @@ os.environ["ADMIN_IDS"] = "8694290031"
 os.environ["PAYMENT_CARD"] = "6037-9973-2621-4617"
 
 import db
+import income
+import infected
 import perf
 import player
 import admin
@@ -188,7 +190,7 @@ def test_war_cd():
 def test_boss_cycle():
     mk("باس‌کش", 4020)
     msg = boss.spawn_tick(CH, force=True)
-    assert msg and "FACTORY ALERT" in msg
+    assert msg and "هشدار کارخانه" in msg
     assert boss.active(CH)
     army.recruit(4020, "pizza", 30)
     P.ex("UPDATE worlds SET boss_hp=10 WHERE chat_id=?", (CH,))
@@ -480,3 +482,154 @@ def test_texts():
     import tutorials
     assert "fw" in texts.HELP and texts.WELCOME_PRIVATE
     assert len(tutorials.TUTS) >= 5
+
+
+# ═══════════ قابلیت‌های جدید: تهران، درآمد خرد، تیر باس، لوت باخت، اینفکتد ═══════════
+
+def test_tehran_day():
+    import datetime
+    import config
+    # کلید روز باید با تاریخ تهران یکی باشد (نه UTC)
+    d_tehran = datetime.datetime.now(config.TZ).strftime("%Y-%m-%d")
+    assert player.today() == d_tehran
+    assert shop._day() == d_tehran
+
+
+def test_migration_columns():
+    # دیتابیس زنده نباید reset شود — ستون‌های جدید با ALTER اضافه می‌شوند
+    cols_w = {r["name"] for r in P.q("PRAGMA table_info(worlds)")}
+    cols_a = {r["name"] for r in P.q("PRAGMA table_info(accounts)")}
+    cols_d = {r["name"] for r in P.q("PRAGMA table_info(daily)")}
+    assert {"boss_tier", "boss_pool"} <= cols_w
+    assert {"controlled_by", "controlled_until"} <= cols_a
+    assert {"sold", "bought"} <= cols_d
+    P.ex("""CREATE TABLE IF NOT EXISTS worlds_oldmig(
+        chat_id INTEGER PRIMARY KEY, started INTEGER)""")
+    # جدول اینفکتد
+    P.ex("INSERT OR REPLACE INTO infected(user_id, boss_id, tier, world_chat, captured_at, expires_at) VALUES(1,'x',1,2,0,0)")
+
+
+def test_shift_income_small():
+    mk("شیفتی", 4100)
+    ok, msg = income.shift(4100)
+    assert ok and ("سکه" in msg or "شیفت" in msg)
+    ok2, msg2 = income.shift(4100)
+    assert not ok2 and "دقیقه" in msg2   # کول‌داون ۳ ساعته
+    p = player.get(4100)
+    assert p["fc"] < 100000 + 300        # درآمد واقعاً کوچک است
+
+
+def test_patrol_income():
+    mk("گشت‌زن", 4101)
+    fc0 = player.get(4101)["fc"]
+    ok, msg = income.patrol(4101)
+    assert ok
+    ok2, _ = income.patrol(4101)
+    assert not ok2                        # کول‌داون ۴۵ دقیقه
+    assert player.get(4101)["fc"] < fc0 + 200
+
+
+def test_missions_six():
+    mk("مأموری", 4102)
+    ok, msg = player.daily(4102)
+    assert ok and "صرافی" in msg          # دو مأموریت جدید دیده می‌شوند
+    perf.cd_clear_all()
+    market.npc_buy(4102, "metal", 5)
+    perf.cd_clear_all()
+    market.npc_sell(4102, "metal", 5)
+    d = P.one("SELECT * FROM daily WHERE user_id=? AND day=?", (4102, player.today()))
+    assert d["bought"] >= 1 and d["sold"] >= 1
+
+
+def test_boss_tiers_and_pool():
+    mk("تیرباز", 4103)
+    msg = boss.spawn_tick(CH, force=True)
+    assert msg and "هشدار کارخانه" in msg
+    w = P.one("SELECT * FROM worlds WHERE chat_id=?", (CH,))
+    assert w["boss_tier"] == 3             # اسپاون اجباری = کابوس
+    assert w["boss_max_hp"] > BOSSES[w["boss_id"]]["hp"]   # جانِ بیشتر
+
+
+def test_boss_escape_loot():
+    mk("شکست‌خورده", 4104)
+    boss.spawn_tick(CH, force=True)
+    army.recruit(4104, "pizza", 20)
+    P.ex("UPDATE worlds SET boss_hp=99999999 WHERE chat_id=?", (CH,))
+    perf.cd_clear_all()
+    boss.attack(4104, CH)                  # آسیب می‌زند، باس نمی‌میرد
+    fc0 = player.get(4104)["fc"]
+    P.ex("UPDATE worlds SET boss_until=? WHERE chat_id=?", (time.time() - 1, CH))
+    msg = boss.spawn_tick(CH)              # سر ساعت: باس فرار کرد → لوت
+    assert msg and "فرار کرد" in msg
+    assert player.get(4104)["fc"] > fc0    # 🎁 لوت باخت
+
+
+def test_infected_capture_and_pool():
+    a = mk("اسیرکننده", 4105)
+    player.update(4105, level=15, fc=100000)
+    boss.spawn_tick(CH, force=True)
+    army.recruit(4105, "pizza", 40)
+    P.ex("UPDATE worlds SET boss_hp=1 WHERE chat_id=?", (CH,))
+    perf.cd_clear_all()
+    ok, msg = boss.attack(4105, CH)
+    assert ok and "سقوط کرد" in msg
+    bid = P.one("SELECT v FROM kv WHERE k=?", (f"bosskill:{CH}",))
+    import json as _json
+    k = _json.loads(bid["v"])
+    assert k["top"] == 4105                # تنها مهاجم = آسیب‌برتر
+    ok, msg = infected.capture(4105, CH)
+    assert ok, msg
+    inf = infected.get(4105)
+    assert inf and inf["boss_id"] == k["boss_id"]
+    # باس از استخر دنیا خارج شده
+    pool = _json.loads(P.one("SELECT boss_pool FROM worlds WHERE chat_id=?", (CH,))["boss_pool"])
+    assert k["boss_id"] not in pool
+    # قدرت ارتش بالا رفت
+    v = army.army_power(4105)
+    assert v > 0 and infected.power_bonus(4105) > 0
+
+
+def test_infected_raid_control():
+    mk("اسیرکننده", 4105)
+    mk("قربانی", 4106)
+    player.update(4106, meat=5000, fc=5000)
+    perf.cd_clear_all()
+    ok, msg = infected.raid(4105, 4106)
+    assert ok, msg
+    d = player.get(4106)
+    assert d["controlled_by"] == 4105 and d["controlled_until"] > time.time()
+    # دوباره → کول‌داون
+    ok2, msg2 = infected.raid(4105, 4106)
+    assert not ok2
+
+
+def test_control_tax_in_tick():
+    # قربانی تولید می‌کند → ۱۵٪ به کنترل‌کننده
+    c0 = player.get(4105)["meat"]
+    v0 = player.get(4106)["meat"]
+    player.update(4106, last_active=time.time() - 3600)
+    player.tick(4106)
+    gained_v = player.get(4106)["meat"] - v0
+    gained_c = player.get(4105)["meat"] - c0
+    assert gained_c > 0                    # مالیات رسید
+    assert gained_v < 60                   # تولید قربانی کمتر از کامل
+
+
+def test_war_loss_breaks_control():
+    mk("ناجی", 4107)
+    army.recruit(4107, "pizza", 40)
+    P.ex("DELETE FROM units WHERE user_id=4105")   # قربانیِ قطعی
+    perf.cd_clear_all()
+    ok, msg = war.declare(4107, 4105)      # کنترل‌کننده می‌بازد
+    assert ok
+    assert player.get(4106)["controlled_by"] == 0   # کنترل شکست
+
+
+def test_infected_expiry_frees_boss():
+    inf = infected.get(4105)
+    P.ex("UPDATE infected SET expires_at=? WHERE user_id=?", (time.time() - 1, 4105))
+    assert infected.get(4105) is None      # انقضای تنبل
+    import json as _json
+    pool = _json.loads(P.one("SELECT boss_pool FROM worlds WHERE chat_id=?", (CH,))["boss_pool"])
+    assert inf["boss_id"] in pool          # باس آزاد شد
+    assert infected.power_bonus(4105) == 0

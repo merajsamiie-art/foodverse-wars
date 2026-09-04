@@ -34,6 +34,11 @@ class EventEngine:
             shop.rotate_if_needed()
         except Exception:
             pass
+        try:
+            import infected
+            infected.cleanup()   # 🧟 اینفکتد‌های سه‌روزه آزاد می‌شوند و کنترل‌ها می‌شکند
+        except Exception:
+            pass
         rows = db.db().q("SELECT chat_id FROM worlds WHERE started=1")
         for r in rows:
             cid = r["chat_id"]

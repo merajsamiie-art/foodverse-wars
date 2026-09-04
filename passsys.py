@@ -4,6 +4,7 @@ import json
 import db
 import perf
 import player
+import config
 from config import PASS_TIERS, PASS_XP_PER_TIER
 from registry import PACKS, COSMETICS, RES_META, PASSES
 
@@ -36,7 +37,7 @@ def pass_text(user_id: int) -> str:
     lines = ["💎 <b>BATTLE PASS</b>", ""]
     if s["active"]:
         import datetime
-        end = datetime.datetime.fromtimestamp(s["until"]).strftime("%m-%d")
+        end = datetime.datetime.fromtimestamp(s["until"], tz=config.TZ).strftime("%m-%d %H:%M")
         lines.append(f"🎖 {PASSES[s['ptype']]['name']} — فعال تا {end}")
     else:
         lines.append("🎖 پاس فعالی نداری (مسیر رایگان همیشه باز است!)")

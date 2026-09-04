@@ -81,7 +81,9 @@ def army_power(user_id: int) -> float:
         return 0.0
     eq = _equip_bonus(user_id)
     tr = _training_bonus(user_id)
-    raw = (s["atk"] * 2 + s["df"] * 1.5 + s["hp"] * 0.3 + s["spd_avg"] * 20) * (1 + tr + eq["spc"])
+    import infected
+    inf = infected.power_bonus(user_id)
+    raw = (s["atk"] * 2 + s["df"] * 1.5 + s["hp"] * 0.3 + s["spd_avg"] * 20) * (1 + tr + eq["spc"] + inf)
     val = round(raw * (1 + eq["atk"]), 1)
     perf.POWER_CACHE.set(user_id, val)
     return val
