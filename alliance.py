@@ -67,7 +67,7 @@ def leave(user_id: int) -> tuple:
             db.db().ex("UPDATE alliances SET owner_uid=? WHERE id=?", (nxt["user_id"], a["id"]))
         else:
             db.db().ex("DELETE FROM alliances WHERE id=?", (a["id"],))
-    return True, "🤝 اتحاد را ترک کردی. تنها در فوودورس، یک انتخاب... جسورانه."
+    return True, "🤝 اتحاد را ترک کردی. حالا تنهای خودت را هم باید نگه داری."
 
 
 def help_(user_id: int, res: str, qty: int) -> tuple:
@@ -106,7 +106,7 @@ def betray(user_id: int) -> tuple:
         return False, "🗡 عضو اتحادی نیستی که خیانت کنی!"
     if (m["betrayed_at"] or 0) > db.now() - BETRAY_CD:
         left = int((m["betrayed_at"] + BETRAY_CD - db.now()) / 3600) + 1
-        return False, f"🗡 وجدانت فعلاً در حال ترمیم است — {left} ساعت دیگر."
+        return False, f"🗡 هنوز نمی‌توانی دوباره خیانت کنی — {left} ساعت صبر کن."
     a = db.db().one("SELECT * FROM alliances WHERE id=?", (m["alliance_id"],))
     if not a:
         return False, "🗡 اتحاد منحل شده."

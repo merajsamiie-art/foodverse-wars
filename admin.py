@@ -24,7 +24,7 @@ def unban(target_user_id: int) -> str:
     if not p:
         return "👤 بازیکنی نیست."
     player.update(target_user_id, banned=0)
-    return f"✅ {p['name']} بخشیده شد. سزاوارش بود؟ شکی نیست که نه."
+    return f"✅ {p['name']} بخشیده شد."
 
 
 def give(target_user_id: int, what: str, qty: int) -> str:

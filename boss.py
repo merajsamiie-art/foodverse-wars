@@ -47,7 +47,7 @@ def _expire_loot(chat_id: int, w: dict) -> str:
     if not rows:
         return None
     lines = [f"💨 <b>{b['emoji']} {b['name']} فرار کرد!</b>",
-             "ولی در شتابِ فرار، بخشی از غنیمتش روی زمین ماند:"]
+             "ولی در عجله‌ی فرار، بخشی از غنیمتش روی زمین ماند:"]
     for r in rows:
         share = int((25 + r["dmg"] * 0.03) * (1 + BOSS_TIER_LOOT * (tier - 1)))
         if share > 0:

@@ -40,7 +40,7 @@ BUILDINGS = {
                      cost0=dict(fc=160, cheese=40)),
     "defense":  dict(name="دفاع",          emoji="🛡️", desc="کاهش آسیب دشمن", maxlv=10,
                      cost0=dict(fc=170, metal=40)),
-    "workshop": dict(name="کارگاه",        emoji="🔧", desc="شواندن دستورهای ساخت", maxlv=5,
+    "workshop": dict(name="کارگاه",        emoji="🔧", desc="ساخت وسایل مهم را باز می‌کند", maxlv=5,
                      cost0=dict(fc=250, metal=60)),
 }
 
@@ -58,7 +58,7 @@ ITEMS = {
     "pizza_mech":    dict(name="مک پیتزایی",  emoji="🤖", kind="equip", slot="atk", rarity="epic",
                           val=0.15, desc="۱۵٪+ حمله‌ی ارتش"),
     "crown_meow":    dict(name="تاج میو کینگ", emoji="👑", kind="equip", slot="spc", rarity="legendary",
-                          val=0.10, desc="۱۰٪+ کل قدرت + پرستیژ"),
+                          val=0.10, desc="۱۰٪+ کل قدرت + اعتبار"),
     # مواد کمیاب باس
     "mega_meat":     dict(name="ابرگوشت",     emoji="🥩", kind="material", rarity="rare",
                           desc="قطره‌ی لازاگنی‌زیلا — سازنده‌ی تخم"),

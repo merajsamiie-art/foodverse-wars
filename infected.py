@@ -74,7 +74,7 @@ def capture(user_id: int, chat_id: int) -> tuple:
     t = db.now()
     if not k or t - k.get("at", 0) > INFECTED_WINDOW:
         return False, ("🧟 اسیرکردن فقط تا ۱۰ دقیقه بعد از سقوط باس ممکن است — "
-                       "و فقط برای صدرنشین جدول آسیب.")
+                       "و فقط برای کسی که بیشترین آسیب را زده.")
     if k.get("top") != user_id:
         return False, "🧟 فقط آسیب‌برترِ آن نبرد می‌تواند باس را اسیر کند."
     if (p["level"] or 1) < INFECTED_LEVEL:
