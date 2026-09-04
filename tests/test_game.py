@@ -31,6 +31,7 @@ import media
 import packs
 import passsys
 import payments
+import refer
 import rank
 import shop
 import war
@@ -341,13 +342,13 @@ def test_order_flow_full():
     ok, msg = payments.create_order(4040, "starter_pack")
     assert ok and "FW-" in msg
     oid = P.one("SELECT order_id FROM orders WHERE user_id=?", (4040,))["order_id"]
-    ok, res = payments.submit_receipt(4040, "TRK-111", "hashAAA")
+    ok, res = payments.submit_receipt(4040, "111111", "hashAAA")
     assert ok and res["order_id"] == oid
     mk("دیگری", 4041)
     payments.create_order(4041, "starter_pack")
-    ok, res = payments.submit_receipt(4041, "TRK-111", "hashBBB")   # پیگیری تکراری
+    ok, res = payments.submit_receipt(4041, "111111", "hashBBB")   # پیگیری تکراری
     assert not ok
-    ok, res = payments.submit_receipt(4041, "TRK-222", "hashAAA")   # هش تکراری
+    ok, res = payments.submit_receipt(4041, "222222", "hashAAA")   # هش تکراری
     assert not ok
     ok, o, msg = payments.decide(oid, 8694290031, True)
     assert ok and "تأیید" in msg
@@ -362,7 +363,7 @@ def test_order_reject():
     assert ok
     oid = P.one("SELECT order_id FROM orders WHERE user_id=? AND status='pending_payment'",
                 (4042,))["order_id"]
-    payments.submit_receipt(4042, "TRK-333", "hashCCC")
+    payments.submit_receipt(4042, "333333", "hashCCC")
     ok, o, msg = payments.decide(oid, 8694290031, False)
     assert ok and "رد" in msg
     assert not any(k.startswith("pack_") for k in player.inv(4042))
@@ -371,9 +372,16 @@ def test_order_reject():
 def test_order_expire():
     mk("دیرکرد", 4043)
     payments.create_order(4043, "starter_pack")
-    P.ex("UPDATE orders SET expires_at=? WHERE user_id=?", (time.time() - 10, 4043))
-    ok, res = payments.submit_receipt(4043, "TRK-444", "hashDDD")
-    assert not ok
+    # 🛟 دیرکرد کمتر از ۲۴ ساعت: رسید قبول می‌شود — پول کسی نمی‌سوزد
+    P.ex("UPDATE orders SET expires_at=? WHERE user_id=?", (time.time() - 3600, 4043))
+    ok, res = payments.submit_receipt(4043, "444444", "hashDDD")
+    assert ok
+    # دیرکرد بیش از ۲۴ ساعت: رد قطعی
+    mk("خیلی دیر", 4044)
+    payments.create_order(4044, "starter_pack")
+    P.ex("UPDATE orders SET expires_at=? WHERE user_id=?", (time.time() - 25 * 3600, 4044))
+    ok, res = payments.submit_receipt(4044, "444445", "hashDDE")
+    assert not ok and "منقضی" in res
 
 
 # ─── Cosmetics ───
@@ -666,16 +674,17 @@ def test_fc_pack_grant_and_bundle():
     ok, msg = payments.create_order(5101, "کیسه‌ی فودکوین")
     assert ok
     oid = P.one("SELECT order_id FROM orders WHERE user_id=?", (5101,))["order_id"]
-    payments.submit_receipt(5101, "TRK-FC1", "hfc1")
+    payments.submit_receipt(5101, "333331", "hfc1")
     ok, o, msg = payments.decide(oid, 8694290031, True)
     assert ok
     fc1 = P.one("SELECT fc FROM accounts WHERE user_id=?", (5101,))["fc"]
     assert fc1 - fc0 == 9000                        # کیسه = ۹k فودکوین
     # بسته‌ی افسانه: فودکوین + صندوق + پاس + عنوان
+    perf.cd_clear_all()
     ok, msg = payments.create_order(5101, "بسته‌ی افسانه‌ی فصل")
     assert ok
     oid = P.one("SELECT order_id FROM orders WHERE user_id=? AND status LIKE 'pending%'", (5101,))["order_id"]
-    payments.submit_receipt(5101, "TRK-FC2", "hfc2")
+    payments.submit_receipt(5101, "333332", "hfc2")
     ok, o, msg = payments.decide(oid, 8694290031, True)
     assert ok
     fc2 = P.one("SELECT fc FROM accounts WHERE user_id=?", (5101,))["fc"]
@@ -723,3 +732,117 @@ def test_market_anticheat():
     lid = P.one("SELECT id FROM listings WHERE seller_uid=? ORDER BY id DESC", (5301,))["id"]
     ok, msg = market.buy_listing(5301, CH, lid)                    # خرید خودی
     assert not ok
+
+
+# ─── رفرال + عضویت اجباری + پرداخت دقیق ───
+def test_referral_flow():
+    mk("معرف", 6001)
+    # ۱) خودارجاعی ممنوع
+    assert refer.bind(6001, f"ref-{6001}") == ""
+    # ۲) معرف ناموجود
+    assert refer.bind(6002, "ref-999999") == ""
+    # ۳) اتصال سالم — حساب تازه (مثل کاربر واقعیِ تازه‌وارد)
+    player.register(6002, "مهمان")
+    note = refer.bind(6002, "ref-6001")
+    assert note and "هدیه" in note
+    # ۴) دوباره بستن ممنوع
+    assert refer.bind(6002, "ref-6001") == ""
+    # ۵) تأیید فقط با اولین روزانه — پاداش دو طرف
+    fc_ref0 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6001,))["fc"]
+    fc_new0 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6002,))["fc"]
+    note, ref_uid, pm = refer.on_daily(6002)
+    assert note and ref_uid == 6001 and pm and "100" in pm
+    fc_ref1 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6001,))["fc"]
+    fc_new1 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6002,))["fc"]
+    assert fc_ref1 - fc_ref0 == 100 and fc_new1 - fc_new0 == 50
+    # ۶) دوباره تأیید نمی‌شود
+    assert refer.on_daily(6002) == ("", 0, "")
+    # ۷) حساب بازی‌کرده نمی‌شود معرفی کرد
+    player.register(6003, "بازیکن قدیمی")
+    P.ex("INSERT INTO daily(user_id, day) VALUES(?, '2026-01-01')", (6003,))
+    assert refer.bind(6003, "ref-6001") == ""
+    # ۸) شماره پیگیری فقط رقم
+    assert refer.link_for(6001).endswith("ref-6001")
+
+
+def test_referral_milestones_and_cap():
+    import config
+    mk("معرف بزرگ", 6101)
+    fc0 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6101,))["fc"]
+    for i in range(5):        # ۵ دعوت → نفر ۵م = جایزه
+        uid = 6110 + i
+        player.register(uid, f"مهمان{i}")
+        assert refer.bind(uid, "ref-6101")
+        note, ref_uid, pm = refer.on_daily(uid)
+        assert note
+    fc = P.one("SELECT fc FROM accounts WHERE user_id=?", (6101,))["fc"]
+    assert fc - fc0 == 5 * config.REF_BASE_FC + config.REF_MILESTONES[5]
+    fc1 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6101,))["fc"]
+    for i in range(10):
+        uid = 6130 + i
+        player.register(uid, f"موج{i}")
+        refer.bind(uid, "ref-6101")
+        refer.on_daily(uid)
+    total = P.one("SELECT COUNT(*) c FROM accounts WHERE ref_by=? AND ref_ok_at>0", (6101,))["c"]
+    assert total == 15                       # همه ثبت می‌شوند…
+    fc2 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6101,))["fc"]
+    assert fc2 - fc1 == 5 * config.REF_BASE_FC + config.REF_MILESTONES[10]   # سقف روزانه؛ نفر ۱۰م جایزه گرفت
+
+
+def test_payment_receipt_checks():
+    mk("خریدار دقیق", 6201)
+    payments.create_order(6201, "لقمه‌ی فودکوین")
+    # شماره پیگیری نامعتبر
+    ok, msg = payments.submit_receipt(6201, "ABC-فیک", "hz1")
+    assert not ok and "پیگیری معتبر نیست" in msg
+    ok, msg = payments.submit_receipt(6201, "12", "hz1")
+    assert not ok
+    # مهلت ۲۴ ساعته: سفارش منقضی‌شده ولی تازه → رسید قبول می‌شود
+    o = P.one("SELECT * FROM orders WHERE user_id=? AND status='pending_payment'", (6201,))
+    P.ex("UPDATE orders SET expires_at=? WHERE id=?", (time.time() - 3600, o["id"]))
+    ok, res = payments.submit_receipt(6201, "987654321", "hz2")
+    assert ok
+    o3 = P.one("SELECT * FROM orders WHERE id=?", (res["id"],))
+    assert o3["status"] == "pending_review"
+    # ۲۴ ساعت گذشته → رد قطعی
+    mk("دیررس", 6202)
+    payments.create_order(6202, "لقمه‌ی فودکوین")
+    o2 = P.one("SELECT * FROM orders WHERE user_id=? AND status='pending_payment'", (6202,))
+    P.ex("UPDATE orders SET expires_at=? WHERE id=?", (time.time() - 25 * 3600, o2["id"]))
+    ok, msg = payments.submit_receipt(6202, "987654322", "hz3")
+    assert not ok and "منقضی" in msg
+    # تأیید → متن دوطرفه کامل
+    ok, o3, msg = payments.decide(o3["order_id"], 8694290031, True)
+    assert ok
+    adm = payments.approved_note_for_admin(o3)
+    usr = payments.approved_note_for_user(o3, msg)
+    assert "واریز شد" in adm and "987654321" in adm and "300" in adm
+    assert "فعال شد" in usr and "لقمه" in usr
+
+
+def test_channel_gate_unit():
+    import asyncio
+    import gate
+
+    class FakeMember:
+        def __init__(self, status): self.status = status
+
+    class FakeBot:
+        def __init__(self, status): self.status = status
+        async def get_chat_member(self, chat, uid):
+            if self.status == "error":
+                raise RuntimeError("api")
+            return FakeMember(self.status)
+
+    async def run():
+        gate._cache.clear()
+        assert await gate.is_member(FakeBot("member"), 1) is True
+        assert await gate.is_member(FakeBot("left"), 2) is False
+        assert await gate.is_member(FakeBot("kicked"), 3) is False
+        assert await gate.is_member(FakeBot("administrator"), 4) is True
+        assert await gate.is_member(FakeBot("error"), 5) is True   # خطا → باز گذر
+        # کش: bot جدید ولی جواب کش‌شده
+        assert await gate.is_member(FakeBot("left"), 1) is True
+        gate.invalidate(1)
+        assert await gate.is_member(FakeBot("left"), 1) is False
+    asyncio.run(run())

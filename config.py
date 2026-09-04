@@ -138,3 +138,14 @@ INFECTED_POWER_BONUS = 0.08        # بونوس قدرت ارتش به‌ازا�
 # ── 👹 تیرهای باس ──
 BOSS_TIER_HP = 0.75                # هر تیر: +۷۵٪ جان
 BOSS_TIER_LOOT = 0.6               # هر تیر: +۶۰٪ جایزه
+
+# ── 📢 عضویت اجباری کانال ──
+FORCE_CHANNEL = "@FoodverseWars"
+CHANNEL_URL = "https://t.me/FoodverseWars"
+
+# ── 🔗 رفرال: پاداش کوچک، فقط برای بازیکن واقعی ──
+BOT_USERNAME = "FoodverseWarsBot"
+REF_BASE_FC = 100                     # هر دعوتِ تأییدشده
+REF_NEWBIE_FC = 50                    # هدیه‌ی خوش‌آمد مهمان
+REF_MILESTONES = {5: 500, 10: 1500, 25: 5000, 50: 15000}   # نفرِ N‌ام
+REF_DAILY_CAP = 10                    # سقف پاداشِ روزانه‌ی هر معرف

@@ -4,7 +4,7 @@ import time as _time
 import db
 import perf
 import player
-from aiogram import F, Router
+from aiogram import BaseMiddleware, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery, Message
 
@@ -82,7 +82,12 @@ def _guard(m: Message) -> dict | None:
 async def cmd_start(m: Message):
     if m.chat.type == "private":
         me = await m.bot.get_me()
-        await m.answer(texts.WELCOME_PRIVATE,
+        p = _reg(m)
+        note = ""
+        if m.text and m.text.startswith("/start") and len(m.text.split()) > 1:
+            import refer
+            note = refer.bind(m.from_user.id, m.text.split(maxsplit=1)[1].strip())
+        await m.answer(texts.WELCOME_PRIVATE + note,
                        reply_markup=ui.private_kb(me.username, GROUP_LINK))
         return
     p = _reg(m)
@@ -109,6 +114,17 @@ async def cmd_start(m: Message):
             pass
     else:
         await _send(m, wait_msg or texts.WORLD_WAITING.format(n=count, need=MIN_PLAYERS))
+
+
+async def cmd_referral(m: Message):
+    p = _reg(m)
+    if p["banned"]:
+        return
+    import refer
+    if m.chat.type != "private":
+        await _send(m, "🔗 لینک دعوتت در پیوی من است — اینجا بنویس: رفرال")
+        return
+    await _send(m, refer.stats_text(m.from_user.id))
 
 
 async def cmd_menu(m: Message):
@@ -198,6 +214,15 @@ async def cmd_daily(m: Message):
     ok, msg = player.daily(m.from_user.id)
     if ok:
         msg += player.advance_guide(m.from_user.id, "daily")
+        try:   # 🔗 دعوت تأیید شد؟ پاداش دو طرف + پیام خصوصی معرف
+            import refer
+            note, ref_uid, pm = refer.on_daily(m.from_user.id)
+            if note:
+                msg += note
+            if ref_uid and pm:
+                await m.bot.send_message(ref_uid, pm)
+        except Exception:
+            pass
     await _send(m, msg)
 
 
@@ -853,13 +878,24 @@ async def _admin_callback(c: CallbackQuery):
     if not ok:
         await c.answer(msg, show_alert=True)
         return
-    # اطلاع به بازیکن
-    try:
-        await c.bot.send_message(o["user_id"],
-                                 msg if act == "ok" else "🔴 سفارشت رد شد. اگر اشتباه بود با مدیر تماس بگیر.")
-    except Exception:
-        pass
     mark = "✅ تأیید شد" if act == "ok" else "❌ رد شد"
+    # 💬 اطلاع‌رسانی دوطرفه و دقیق
+    if act == "ok":
+        try:   # بازیکن: «خریدت فعال شد» + جزئیات کامل
+            await c.bot.send_message(o["user_id"],
+                                     payments.approved_note_for_user(o, msg))
+        except Exception:
+            pass
+        try:   # ادمین: «پول با این پیگیری واریز شد و فعال شد»
+            await c.message.answer(payments.approved_note_for_admin(o))
+        except Exception:
+            pass
+    else:
+        try:
+            await c.bot.send_message(o["user_id"],
+                                     "🔴 سفارشت رد شد. اگر اشتباه بود با مدیر تماس بگیر.")
+        except Exception:
+            pass
     try:
         await c.answer(mark, show_alert=False)
         await c.message.edit_reply_markup(reply_markup=None)
@@ -880,7 +916,7 @@ async def cmd_help(m: Message):
 
 # ═══════════ توزیع‌کننده‌ی دستورها — بدون پیشوند؛ خود کلمه = دستور ═══════════
 CMD_WORDS = frozenset((
-    "شروع", "منو", "من", "کارت", "روزانه", "پایگاه", "ارتقا", "مستعمره", "غارت",
+    "شروع", "منو", "من", "کارت", "روزانه", "رفرال", "دعوت", "پایگاه", "ارتقا", "مستعمره", "غارت",
     "ارتش", "جذب", "جنگ", "باس", "شیفت", "گشت", "اینفکت", "اینفکتد", "هجوم",
     "شخصیت", "ساخت", "تفریخ", "انبار", "تجهیز", "پک", "بازکردن", "شانس",
     "فروشگاه", "خریدن", "خرید", "فروش", "بفروش", "برداشتن", "قیمت", "قیمت‌ها",
@@ -898,6 +934,54 @@ GROUP_CMDS = ("شروع", "منو", "من", "پایگاه", "ارتقا", "مس�
               "برداشتن", "قیمت", "اتحاد", "تأسیس", "عضویت", "ترک", "کمک", "خیانت",
               "رتبه", "شخصیت", "بازکردن", "مدیر", "اینفکت", "اینفکتد", "هجوم",
               "شیفت", "گشت")
+
+
+# 📢 دستورهایی که بدون عضویت در کانال هم جواب می‌گیرند
+UNGATED = frozenset((
+    "شروع", "راهنما", "آموزش", "رفرال", "دعوت",
+    "سفارش", "رسید", "لغو",          # پرداخت هرگز بلاک نشود
+    "مدیر", "پیام", "بن", "حذف‌بن", "هدیه", "آمار", "تصویر", "پیش‌نمایش", "حذف‌تصویر",
+    "رسیدها", "قیمت‌ها",              # ادمین + دیدن قیمت‌ها آزاد
+))
+
+
+class ChannelGate(BaseMiddleware):
+    """عضویت اجباری کانال — فقط روی دستورهای بازی؛ گفتگوی عادی آزاد است."""
+
+    async def __call__(self, handler, event, data):
+        u = data.get("event_from_user")
+        if not u or u.is_bot or u.id in ADMIN_IDS:
+            return await handler(event, data)
+        import gate as _gate
+        if isinstance(event, CallbackQuery):
+            d = event.data or ""
+            if not d.startswith("h:"):        # adm: → فقط ادمین
+                return await handler(event, data)
+            if d.split(":")[-1] in ("help", "back", "hub"):
+                return await handler(event, data)
+            if not await _gate.is_member(event.bot, u.id):
+                try:
+                    await event.answer(_gate.join_text(), show_alert=True)
+                except Exception:
+                    pass
+                return
+            return await handler(event, data)
+        txt = (event.text or event.caption or "").strip()
+        if not txt:
+            return await handler(event, data)  # عکس بدون کپشن و …
+        first = txt.split(maxsplit=1)[0]
+        word = first.lstrip("/").strip()
+        if not (word in CMD_WORDS or first.startswith("/")):
+            return await handler(event, data)  # گفتگوی عادی → آزاد
+        if word in UNGATED:
+            return await handler(event, data)
+        if not await _gate.is_member(event.bot, u.id):
+            try:
+                await event.answer(_gate.join_text(), reply_markup=_gate.join_kb())
+            except Exception:
+                pass
+            return
+        return await handler(event, data)
 
 
 async def on_text(m: Message):
@@ -959,12 +1043,14 @@ async def on_text(m: Message):
                        reply_markup=ui.private_kb(me.username, GROUP_LINK))
         return
     if (in_group and not world.is_started(m.chat.id)
-            and cmd not in ("شروع", "مدیر", "راهنما", "آموزش")):
+            and cmd not in ("شروع", "مدیر", "راهنما", "آموزش", "رفرال", "دعوت")):
         await _send(m, texts.DEAD_WORLD.format(need=MIN_PLAYERS))
         return
 
     if cmd == "شروع":
         await cmd_start(m)
+    elif cmd in ("رفرال", "دعوت"):
+        await cmd_referral(m)
     elif cmd == "منو":
         await cmd_menu(m)
     elif cmd == "من":
@@ -1086,6 +1172,8 @@ async def on_member_join(m: Message):
 
 
 def reg_slash(r: Router):
+    r.message.outer_middleware(ChannelGate())
+    r.callback_query.outer_middleware(ChannelGate())
     r.message.register(cmd_start, CommandStart())
     r.message.register(cmd_help, Command("help"))
     r.message.register(cmd_menu, Command("menu"))

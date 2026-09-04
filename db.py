@@ -143,7 +143,9 @@ class DB:
             "worlds": {"boss_tier": "INTEGER DEFAULT 1", "boss_pool": "TEXT DEFAULT ''"},
             "accounts": {"controlled_by": "INTEGER DEFAULT 0",
                          "controlled_until": "REAL DEFAULT 0",
-                         "guide_step": "INTEGER DEFAULT 0"},
+                         "guide_step": "INTEGER DEFAULT 0",
+                         "ref_by": "INTEGER DEFAULT 0",
+                         "ref_ok_at": "REAL DEFAULT 0"},
             "daily": {"sold": "INTEGER DEFAULT 0", "bought": "INTEGER DEFAULT 0"},
         }
         for tbl, cols in adds.items():

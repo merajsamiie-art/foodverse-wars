@@ -94,13 +94,20 @@ def submit_receipt(user_id: int, tracking_no: str, photo_hash: str) -> tuple:
     """۲) ارسال رسید: چندلایه چک می‌شود؛ فیش تنها تأییدکننده نیست."""
     if not tracking_no or not photo_hash:
         return False, "🧾 عکس رسید + «رسید [شماره پیگیری]» لازم است."
+    tracking_no = tracking_no.strip()
+    if not (tracking_no.isdigit() and 4 <= len(tracking_no) <= 30):
+        return False, "🚫 شماره پیگیری معتبر نیست — فقط رقم‌های بانک را بفرست."
+    if player.on_cd(user_id, "receipt"):
+        return False, f"⏳ کمی صبر کن — {player.cd_left(user_id, 'receipt')} ثانیه."
     o = db.db().one("""SELECT * FROM orders WHERE user_id=? AND status='pending_payment'
                        ORDER BY id DESC LIMIT 1""", (user_id,))
     if not o:
         return False, "🧾 سفارش بازی نداری. «سفارش [محصول]»"
-    if db.now() > (o["expires_at"] or 0):
+    expired = db.now() > (o["expires_at"] or 0)
+    if expired and db.now() > (o["expires_at"] or 0) + 24 * 3600:
         db.db().ex("UPDATE orders SET status='expired' WHERE id=?", (o["id"],))
-        return False, "⚫ سفارشت منقضی شده — دوباره سفارش بده."
+        return False, "⚫ سفارشت خیلی وقت پیش منقضی شده — دوباره سفارش بده."
+    # 🛟 مهلت ۲۴ ساعته: اگر دیر رسید دادی ولی پول رفته، سفارش زنده می‌شود
     # تکراری‌ها
     if db.db().one("SELECT 1 FROM orders WHERE tracking_no=?", (tracking_no,)):
         return False, "🚫 این شماره پیگیری قبلاً استفاده شده."
@@ -110,6 +117,7 @@ def submit_receipt(user_id: int, tracking_no: str, photo_hash: str) -> tuple:
         db.db().ex("""UPDATE orders SET status='pending_review', tracking_no=?,
                       receipt_hash=? WHERE id=? AND status='pending_payment'""",
                    (tracking_no, photo_hash, o["id"]))
+    player.set_cd(user_id, "receipt", 60)
     _log(user_id, "receipt", o["order_id"])
     return True, o  # هندلر برای مدیر ارسال می‌کند
 
@@ -202,3 +210,23 @@ def _product_name(product: str) -> str:
 
 def hash_photo(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def approved_note_for_admin(o: dict) -> str:
+    """پیام تأیید برای ادمین: پول واریز شد و خرید بازیکن فعال شد."""
+    p = player.get(o["user_id"])
+    return (f"💰 <b>پول واریز شد و خرید فعال شد</b>\n"
+            f"👤 {p['name'] if p else '?'} — <code>{o['user_id']}</code>\n"
+            f"📦 {_product_name(o['product'])}\n"
+            f"💰 {o['amount']:,} تومان\n"
+            f"🧾 پیگیری: <code>{o['tracking_no']}</code>\n"
+            f"🔢 کد سفارش: <code>{o['order_id']}</code>")
+
+
+def approved_note_for_user(o: dict, grant_msg: str) -> str:
+    """پیام تأیید برای بازیکن: خریدت فعال شد + جزئیات."""
+    return (f"✅ <b>خریدت فعال شد!</b>\n"
+            f"📦 {_product_name(o['product'])}\n"
+            f"💰 مبلغ: {o['amount']:,} تومان\n"
+            f"🔢 کد سفارش: <code>{o['order_id']}</code>\n\n"
+            f"{grant_msg}")
