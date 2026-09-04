@@ -129,7 +129,7 @@ def apply_losses(user_id: int, pct: float) -> dict:
 def army_text(user_id: int) -> str:
     a = army_of(user_id)
     if not a:
-        return "🪖 ارتش: هنوز هیچی. «fw جذب برگر ۵»"
+        return "🪖 ارتش: هنوز هیچی. «جذب برگر ۵»"
     lines = []
     for uid, n in sorted(a.items(), key=lambda x: -x[1]):
         u = UNITS[uid]

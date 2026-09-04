@@ -158,7 +158,7 @@ def char_text(c: dict) -> str:
     lines.append(" | ".join(st))
     lines.append(f"{rar[0]} {rar[1]} | 🎭 نوع: {c.get('ctype', '?')}")
     if c.get("cost"):
-        lines.append("🪖 «fw جذب " + c["name"] + " [تعداد]»")
+        lines.append("🪖 «جذب " + c["name"] + " [تعداد]»")
     return "\n".join(lines)
 
 
@@ -212,7 +212,7 @@ async def cmd_raid(m: Message):
     if not p:
         return
     if not m.reply_to_message or not m.reply_to_message.from_user:
-        await _send(m, "🏝️ روی پیام صاحب مستعمره ریپلای کن و «fw غارت» بزن.")
+        await _send(m, "🏝️ روی پیام صاحب مستعمره ریپلای کن و «غارت» بزن.")
         return
     d = player.get(m.reply_to_message.from_user.id)
     if not d:
@@ -247,14 +247,14 @@ async def cmd_war(m: Message):
     if not p:
         return
     if not m.reply_to_message or not m.reply_to_message.from_user:
-        await _send(m, "⚔️ روی پیام حریف ریپلای کن و «fw جنگ» بزن.")
+        await _send(m, "⚔️ روی پیام حریف ریپلای کن و «جنگ» بزن.")
         return
     if m.reply_to_message.from_user.id == m.bot.id:
         await _send(m, "⚔️ ربات فوودورس نمی‌جنگد. فقط می‌بیند. 👁")
         return
     d = player.get(m.reply_to_message.from_user.id)
     if not d:
-        await _send(m, "⚔️ او هنوز بازیکن نیست — «fw شروع» را بهش بگو.")
+        await _send(m, "⚔️ او هنوز بازیکن نیست — «شروع» را بهش بگو.")
         return
     ok, msg = war_declare(m.from_user.id, d["user_id"])
     await _send(m, msg, feed=True)
@@ -281,7 +281,7 @@ def boss_status_text(chat_id: int) -> str:
             f"❤️ {perf.fmt(max(0, w['boss_hp']))}/{perf.fmt(w['boss_max_hp'])} | ⏳ {left} دقیقه\n"
             f"📜 {b['lore']}\n"
             f"🥇 آسیب‌زننده‌ها:\n{lb}\n"
-            f"⚔️ حمله: «fw باس»")
+            f"⚔️ حمله: «باس»")
 
 
 async def cmd_boss(m: Message):
@@ -326,14 +326,14 @@ async def cmd_inf_raid(m: Message):
     if not p:
         return
     if not m.reply_to_message or not m.reply_to_message.from_user:
-        await _send(m, "🧟 روی پیام هدف ریپلای کن و «fw هجوم» بزن.")
+        await _send(m, "🧟 روی پیام هدف ریپلای کن و «هجوم» بزن.")
         return
     if m.reply_to_message.from_user.id == m.bot.id:
         await _send(m, "🧟 اینفکتدت از ربات می‌ترسد. عاقلانه است.")
         return
     d = player.get(m.reply_to_message.from_user.id)
     if not d:
-        await _send(m, "🎯 او هنوز بازیکن نیست — «fw شروع» را بهش بگو.")
+        await _send(m, "🎯 او هنوز بازیکن نیست — «شروع» را بهش بگو.")
         return
     ok, msg = infected.raid(m.from_user.id, d["user_id"])
     await _send(m, msg, feed=ok)
@@ -363,7 +363,7 @@ async def cmd_inv(m: Message):
 def inv_text(user_id: int) -> str:
     inv = player.inv(user_id)
     if not inv:
-        return "🎒 انبار خالی است. «fw ساخت» یا «fw فروشگاه»"
+        return "🎒 انبار خالی است. «ساخت» یا «فروشگاه»"
     lines = []
     for iid, qty in sorted(inv.items()):
         if iid.startswith("pack_"):
@@ -383,7 +383,7 @@ def inv_text(user_id: int) -> str:
         lines.append(f"{it['emoji']} {it['name']} ×{qty}{eq}")
     used = len(lines)
     return (f"🎒 <b>انبار</b> ({used} قلم)\n" + "\n".join(lines) +
-            "\n\n⚙️ «fw تجهیز [کالا]» | 📦 «fw بازکردن [پک]»")
+            "\n\n⚙️ «تجهیز [کالا]» | 📦 «بازکردن [پک]»")
 
 
 async def cmd_equip(m: Message, ref: str):
@@ -415,7 +415,7 @@ async def cmd_open_pack(m: Message, ref: str):
     _reg(m)
     pid = next((k for k, pk in PACKS.items() if ref in (k, pk["name"], pk["en"])), None)
     if not pid:
-        await _send(m, "📦 «fw بازکردن [نام پک]»")
+        await _send(m, "📦 «بازکردن [نام پک]»")
         return
     if player.on_cd(m.from_user.id, "pack"):
         await _react_quiet(m, "⏳")
@@ -426,7 +426,7 @@ async def cmd_open_pack(m: Message, ref: str):
 
 async def cmd_odds(m: Message, ref: str):
     pid = next((k for k, pk in PACKS.items() if ref in (k, pk["name"], pk["en"])), None)
-    await _send(m, packs.odds_text(pid) if pid else "📊 «fw شانس [نام پک]»")
+    await _send(m, packs.odds_text(pid) if pid else "📊 «شانس [نام پک]»")
 
 
 async def cmd_shop(m: Message):
@@ -448,7 +448,7 @@ async def cmd_pass(m: Message):
 async def cmd_pass_claim(m: Message, tier: str, track: str):
     _reg(m)
     if not tier.isdigit():
-        await _send(m, "🎁 «fw جایزه پاس [پله] [رایگان|پرمیوم]»")
+        await _send(m, "🎁 «جایزه پاس [پله] [رایگان|پرمیوم]»")
         return
     tr = "prem" if "پرمیوم" in track else "free"
     await _send(m, passsys.claim(m.from_user.id, int(tier), tr)[1])
@@ -481,12 +481,12 @@ async def cmd_cancel_order(m: Message):
 async def cmd_receipt_text(m: Message, tracking: str):
     if m.chat.type != "private":
         return
-    await _send(m, "🖼 عکس رسید را با این پیام بفرست: عکس + کپشن «fw رسید "
+    await _send(m, "🖼 عکس رسید را با این پیام بفرست: عکس + کپشن «رسید "
                   f"{tracking or '[شماره پیگیری]'}»")
 
 
 async def on_photo(m: Message):
-    """رسید پرداخت: عکس + کپشن «fw رسید [شماره]»."""
+    """رسید پرداخت: عکس + کپشن «رسید [شماره]»."""
     if m.chat.type != "private" or not m.photo or not m.caption:
         return
     cap = m.caption.strip()
@@ -545,7 +545,7 @@ async def cmd_sell_item(m: Message, ref: str, qty: str, price: str):
     if not p:
         return
     if not (qty.isdigit() and price.isdigit()):
-        await _send(m, "🔄 «fw بفروش [کالا] [تعداد] [قیمت]»")
+        await _send(m, "🔄 «بفروش [کالا] [تعداد] [قیمت]»")
         return
     await _send(m, market.sell_item(m.from_user.id, m.chat.id, ref, int(qty), int(price))[1])
 
@@ -555,7 +555,7 @@ async def cmd_buy_listing(m: Message, ref: str):
     if not p:
         return
     if not ref.isdigit():
-        await _send(m, "🛒 «fw برداشتن [شماره‌ی آگهی]»")
+        await _send(m, "🛒 «برداشتن [شماره‌ی آگهی]»")
         return
     await _send(m, market.buy_listing(m.from_user.id, m.chat.id, int(ref))[1])
 
@@ -629,7 +629,7 @@ async def cmd_admin(m: Message, rest: str):
         if len(bits) >= 2:
             await _send(m, admin.give(m.reply_to_message.from_user.id, bits[0], bits[1]))
         else:
-            await _send(m, "🎁 ریپلای + «fw مدیر هدیه [شناسه] [چیز] [تعداد]»")
+            await _send(m, "🎁 ریپلای + «مدیر هدیه [شناسه] [چیز] [تعداد]»")
     elif sub == "باس":
         msg = boss.spawn_tick(m.chat.id, force=True)
         if msg:
@@ -644,7 +644,7 @@ async def cmd_admin(m: Message, rest: str):
     elif sub == "تصویر" and m.reply_to_message and m.reply_to_message.photo:
         key = arg.strip().replace(" ", "_")
         if not key:
-            await _send(m, "🖼 «fw مدیر تصویر [کلید]» روی عکس")
+            await _send(m, "🖼 «مدیر تصویر [کلید]» روی عکس")
             return
         fid = m.reply_to_message.photo[-1].file_id
         media.set_file_id(key, fid, "photo")
@@ -677,7 +677,7 @@ async def cmd_admin(m: Message, rest: str):
             rep.append(f"❌ عنوان: {e}")
         try:
             await m.bot.set_chat_description(
-                cid, "⚔️ گروه نبرد رسمی FOODVERSE WARS — ۴ نفر «fw شروع» بزنند و جنگ شروع می‌شود!\n"
+                cid, "⚔️ گروه نبرد رسمی FOODVERSE WARS — ۴ نفر «شروع» بزنند و جنگ شروع می‌شود!\n"
                      "🤖 ربات: @FoodverseWarsBot | 📚 آموزش‌ها: @FoodverseWars")
             rep.append("✅ توضیحات گروه")
         except Exception as e:
@@ -693,11 +693,11 @@ async def cmd_admin(m: Message, rest: str):
             rep.append(f"❌ عکس: {e}")
         try:
             intro = ("⚔️ <b>به گروه نبرد FOODVERSE WARS خوش آمدید!</b>\n\n"
-                     "۴ نفر «fw شروع» بزنند تا دنیای این گروه روشن شود؛ بعد:\n"
-                     "🪖 «fw جذب برگر ۵» — ارتش بساز\n"
-                     "🏭 «fw ارتقا کارخانه» — درآمد\n"
-                     "⚔️ «fw جنگ [نام]» — نبرد\n"
-                     "👹 «fw باس» — باس‌رید گروهی\n\n"
+                     "۴ نفر «شروع» بزنند تا دنیای این گروه روشن شود؛ بعد:\n"
+                     "🪖 «جذب برگر ۵» — ارتش بساز\n"
+                     "🏭 «ارتقا کارخانه» — درآمد\n"
+                     "⚔️ «جنگ [نام]» — نبرد\n"
+                     "👹 «باس» — باس‌رید گروهی\n\n"
                      "📚 آموزش کامل: @FoodverseWars\n"
                      "🤖 ربات: @FoodverseWarsBot")
             photo = media.fs_path("brand_group")
@@ -723,7 +723,7 @@ async def cmd_admin(m: Message, rest: str):
             else:
                 await _send(m, "🛍 محصول نامعتبر.")
         else:
-            await _send(m, "💰 «fw مدیر قیمت [محصول] [تومان]»")
+            await _send(m, "💰 «مدیر قیمت [محصول] [تومان]»")
     else:
         await _send(m, "⚙️ مدیر: پیام [متن] | بن (ریپلای) | حذف‌بن (ریپلای) | هدیه (ریپلای) | "
                       "باس | آمار | تصویر [کلید] (ریپلای عکس) | پیش‌نمایش [کلید] | "
@@ -841,8 +841,20 @@ async def cmd_help(m: Message):
     await _send(m, texts.HELP)
 
 
-# ═══════════ توزیع‌کننده‌ی «fw» ═══════════
-PREFIXES = ("fw ", "FW ")
+# ═══════════ توزیع‌کننده‌ی دستورها — بدون پیشوند؛ خود کلمه = دستور ═══════════
+CMD_WORDS = frozenset((
+    "شروع", "منو", "من", "کارت", "روزانه", "پایگاه", "ارتقا", "مستعمره", "غارت",
+    "ارتش", "جذب", "جنگ", "باس", "شیفت", "گشت", "اینفکت", "اینفکتد", "هجوم",
+    "شخصیت", "ساخت", "تفریخ", "انبار", "تجهیز", "پک", "بازکردن", "شانس",
+    "فروشگاه", "خریدن", "خرید", "فروش", "بفروش", "برداشتن", "قیمت", "قیمت‌ها",
+    "پاس", "جایزه", "سفارشی", "بپوش", "دربیاور", "سفارش", "لغو", "رسید",
+    "رتبه", "مدیر", "اتحاد", "تأسیس", "عضویت", "ترک", "کمک", "خیانت",
+    "راهنما", "آموزش",
+))
+REGISTERED_SLASH = frozenset((
+    "start", "help", "menu", "daily", "base", "army", "boss", "inv",
+    "packs", "pass", "shop", "ally", "top",
+))
 
 GROUP_CMDS = ("شروع", "منو", "من", "پایگاه", "ارتقا", "مستعمره", "غارت", "ارتش", "جذب",
               "جنگ", "باس", "ساخت", "انبار", "تجهیز", "بازار", "فروشگاه", "بفروش",
@@ -866,30 +878,27 @@ async def on_text(m: Message):
             db.db().ex("INSERT OR REPLACE INTO kv(k, v) VALUES(?,?)",
                        ("brand_target", str(fchat.id)))
             await _send(m, f"🆔 گروه «{fchat.title}» ثبت شد — شناسه‌ی عددی گروه: <code>{fchat.id}</code>\n"
-                          "🎨 حالا «fw مدیر برند» را بفرست تا عنوان/عکس/توضیحات/پست معرفی ست شود.")
+                          "🎨 حالا «مدیر برند» را بفرست تا عنوان/عکس/توضیحات/پست معرفی ست شود.")
             return
     text = m.text.strip()
-    # ─── آینه‌ی اسلش: /جنگ x → fw جنگ x (حتی با privacy mode کار می‌کند) ───
+    # ─── بدون پیشوند: کلمه‌ی اول، خودِ دستور است ───
     if text.startswith("/"):
         first, _, tail = text[1:].partition(" ")
         first = first.split("@", 1)[0]        # فقط /cmd@BotName
-        if not first or (not tail and first in ("start", "help", "menu",
-                                                "daily", "base", "army", "boss",
-                                                "inv", "packs", "pass", "shop",
-                                                "ally", "top")):
-            return   # دستورات ثبت‌شده‌ی رسمی و اسلشِ تنها
-        text = ("fw " + first + " " + tail).strip()
-    hit = next((p for p in PREFIXES if text.startswith(p)), None)
-    if not hit:
-        # «fw» تنها
-        if text in ("fw", "FW"):
-            hit = "fw "
-            text = "fw منو"
-        else:
-            return
-    body = text[len(hit):].strip()
-    if not body:
-        body = "منو"
+        if not first or (not tail and first in REGISTERED_SLASH):
+            return   # دستورهای ثبت‌شده‌ی رسمی و اسلشِ تنها
+        text = (first + " " + tail).strip()
+    low = text.lower()
+    if low in ("fw", "fw؟", "fw?"):
+        await _send(m, "🔔 دیگر پیشوند لازم نیست! فقط خود کلمه را بفرست — مثل: «منو» یا «راهنما»")
+        return
+    if low.startswith("fw ") or low.startswith("fw‌"):
+        after = text[3:].strip() or "منو"
+        await _send(m, f"🔔 دیگر «fw» لازم نیست! همین‌طور بنویس: «{after}»")
+        return
+    if text.split(maxsplit=1)[0] not in CMD_WORDS:
+        return   # گفتگوی عادی → سکوت محترمانه
+    body = text
     perf.STATS.commands += 1
     parts = body.split()
     cmd = parts[0]

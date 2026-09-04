@@ -94,8 +94,8 @@ def spawn_tick(chat_id: int, force: bool = False) -> str | None:
     return (f"🚨 <b>هشدار کارخانه!</b>\n"
             f"{b['emoji']} <b>{b['name']}</b> ظاهر شد — {TIER_BADGE.get(tier, '')}\n"
             f"❤️ {hp:,} | 📜 {b['lore']}\n"
-            f"⏳ {BOSS_DURATION // 60} دقیقه — «fw باس» برای حمله‌ی گروهی\n"
-            f"🧟 آسیب‌برتر می‌تواند بعد از سقوطش، آن را اسیر کند: «fw اینفکت»")
+            f"⏳ {BOSS_DURATION // 60} دقیقه — «باس» برای حمله‌ی گروهی\n"
+            f"🧟 آسیب‌برتر می‌تواند بعد از سقوطش، آن را اسیر کند: «اینفکت»")
 
 
 def attack(user_id: int, chat_id: int) -> tuple:
@@ -187,6 +187,6 @@ def _finish(chat_id: int, boss_id: str, last_uid: int) -> str:
                (f"bosskill:{chat_id}",
                 json.dumps(dict(boss_id=boss_id, tier=tier, top=rows[0]["user_id"],
                                 at=db.now()))))
-    lines.append("🧟 آسیب‌برتر تا ۱۰ دقیقه فرصت دارد باس را اسیر کند: «fw اینفکت»")
+    lines.append("🧟 آسیب‌برتر تا ۱۰ دقیقه فرصت دارد باس را اسیر کند: «اینفکت»")
     db.db().ex("DELETE FROM boss_dmg WHERE chat_id=? AND boss_id=?", (chat_id, boss_id))
     return "\n".join(lines)

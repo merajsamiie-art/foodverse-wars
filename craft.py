@@ -14,14 +14,14 @@ def _workshop_lv(user_id: int) -> int:
 def craft_text(user_id: int) -> str:
     p = player.get(user_id)
     wl = _workshop_lv(user_id)
-    lines = [f"🛠 <b>کارگاه</b> — سطح {wl} (ارتقا: «fw ارتقا کارگاه»)", ""]
+    lines = [f"🛠 <b>کارگاه</b> — سطح {wl} (ارتقا: «ارتقا کارگاه»)", ""]
     for rid, r in RECIPES.items():
         it = ITEMS[r["out"]]
         ok = p["level"] >= r["need_lv"] and wl >= r["workshop"]
         cost = " ".join(f"{k}:{v}" for k, v in r["cost"].items())
         lock = "✅" if ok else f"🔒 (لِوِل {r['need_lv']} + کارگاه {r['workshop']})"
         lines.append(f"{it['emoji']} <b>{it['name']}</b> {lock}\n   🧪 {it['desc']} | 💰 {cost}")
-    lines.append("\n🏗 «fw ساخت [نام کالا]»")
+    lines.append("\n🏗 «ساخت [نام کالا]»")
     return "\n".join(lines)
 
 
@@ -33,7 +33,7 @@ def craft(user_id: int, ref: str) -> tuple:
             rid = k
             break
     if not rid:
-        return False, "🛠 چنین دستوری نیست. «fw ساخت»"
+        return False, "🛠 چنین دستوری نیست. «ساخت»"
     r = RECIPES[rid]
     it = ITEMS[r["out"]]
     if p["level"] < r["need_lv"]:

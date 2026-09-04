@@ -15,7 +15,7 @@ def _log(user_id, kind, detail):
 
 def products_text() -> str:
     lines = ["🛍 <b>فروشگاه ویژه</b> — پک‌ها و پاس‌ها", ""]
-    lines.append("📦 <b>پک‌ها</b> (شانس‌ها شفاف: «fw شانس [نام]»):")
+    lines.append("📦 <b>پک‌ها</b> (شانس‌ها شفاف: «شانس [نام]»):")
     for pid, pk in PACKS.items():
         if pk["price_toman"] > 0:
             lines.append(f"{pk['emoji']} {pk['name']}\n{pk['en']}\n   💰 {pk['price_toman']:,} تومان")
@@ -23,7 +23,7 @@ def products_text() -> str:
     for pt, ps in PASSES.items():
         lines.append(f"{ps['emoji']} {ps['name']} ({ps['days']} روز)\n{ps['en']}\n   💰 {ps['price_toman']:,} تومان")
     lines.append("\nℹ️ پرداخت: کارت‌به‌کارت + تأیید دستی مدیر (امن و بدون ربات)"
-                 "\n🛒 «fw سفارش [نام محصول]»")
+                 "\n🛒 «سفارش [نام محصول]»")
     return "\n".join(lines)
 
 
@@ -39,7 +39,7 @@ def create_order(user_id: int, product_ref: str) -> tuple:
     """۱) سفارش + Order ID یکتا + انقضا ۳۰ دقیقه."""
     product = _resolve_product(product_ref)
     if not product:
-        return False, "🛍 محصول نامعتبر. «fw خرید»"
+        return False, "🛍 محصول نامعتبر. «خرید»"
     price = _price_of(product)
     if price <= 0:
         return False, "🛍 این محصول فروشی نیست."
@@ -48,7 +48,7 @@ def create_order(user_id: int, product_ref: str) -> tuple:
                             status IN ('pending_payment','pending_review')""", (user_id,))
     if open_o:
         return False, (f"🧾 یک سفارش بازی داری: <code>{open_o['order_id']}</code>\n"
-                       "اول همین را پرداخت کن یا «fw لغو سفارش».")
+                       "اول همین را پرداخت کن یا «لغو سفارش».")
     order_id = f"FW-{random.randint(100000, 999999)}"
     while db.db().one("SELECT 1 FROM orders WHERE order_id=?", (order_id,)):
         order_id = f"FW-{random.randint(100000, 999999)}"
@@ -63,7 +63,7 @@ def create_order(user_id: int, product_ref: str) -> tuple:
                   f"🔢 کد سفارش: <code>{order_id}</code>\n"
                   f"⏳ ۳۰ دقیقه اعتبار دارد.\n\n{pay_info}\n\n"
                   f"بعد از پرداخت، همین‌جا عکس رسید + شماره پیگیری را بفرست:\n"
-                  f"«fw رسید [شماره پیگیری]» همراه با عکس")
+                  f"«رسید [شماره پیگیری]» همراه با عکس")
 
 
 def _payment_text(order_id: str, price: int) -> str:
@@ -85,11 +85,11 @@ def cancel_order(user_id: int) -> tuple:
 def submit_receipt(user_id: int, tracking_no: str, photo_hash: str) -> tuple:
     """۲) ارسال رسید: چندلایه چک می‌شود؛ فیش تنها تأییدکننده نیست."""
     if not tracking_no or not photo_hash:
-        return False, "🧾 عکس رسید + «fw رسید [شماره پیگیری]» لازم است."
+        return False, "🧾 عکس رسید + «رسید [شماره پیگیری]» لازم است."
     o = db.db().one("""SELECT * FROM orders WHERE user_id=? AND status='pending_payment'
                        ORDER BY id DESC LIMIT 1""", (user_id,))
     if not o:
-        return False, "🧾 سفارش بازی نداری. «fw سفارش [محصول]»"
+        return False, "🧾 سفارش بازی نداری. «سفارش [محصول]»"
     if db.now() > (o["expires_at"] or 0):
         db.db().ex("UPDATE orders SET status='expired' WHERE id=?", (o["id"],))
         return False, "⚫ سفارشت منقضی شده — دوباره سفارش بده."
@@ -144,7 +144,7 @@ def _grant_product(user_id: int, product: str) -> str:
     if product in PACKS:
         player.add_item(user_id, f"pack_{product}", 1)
         pk = PACKS[product]
-        return f"✅ پرداخت تأیید شد! {pk['emoji']} {pk['name']} به انبارت اضافه شد: «fw بازکردن {pk['name']}»"
+        return f"✅ پرداخت تأیید شد! {pk['emoji']} {pk['name']} به انبارت اضافه شد: «بازکردن {pk['name']}»"
     if product in PASSES:
         import passsys
         ok, msg = passsys.activate(user_id, product, PASSES[product]["days"])

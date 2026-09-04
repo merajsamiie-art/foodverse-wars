@@ -55,7 +55,7 @@ def shop_text(user_id: int) -> str:
     lines.append("\n📅 <b>این هفته</b>:")
     for slot in w:
         lines.append(_slot_line(user_id, slot))
-    lines.append("\n🛒 «fw خریدن [نام کالا]» | پک‌های ویژه: «fw خرید»")
+    lines.append("\n🛒 «خریدن [نام کالا]» | پک‌های ویژه: «خرید»")
     return "\n".join(lines)
 
 
@@ -85,7 +85,7 @@ def buy(user_id: int, slot_ref: str) -> tuple:
             slot = s
             break
     if not slot:
-        return False, "🛒 این کالا الان در فروشگاه نیست. «fw فروشگاه»"
+        return False, "🛒 این کالا الان در فروشگاه نیست. «فروشگاه»"
     m = SHOP_POOL[slot]
     p = player.get(user_id)
     if _user_bought(user_id, slot) >= m["limit"]:

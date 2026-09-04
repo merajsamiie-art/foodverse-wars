@@ -60,10 +60,10 @@ def last_kill(chat_id: int) -> dict:
 
 
 def capture(user_id: int, chat_id: int) -> tuple:
-    """«fw اینفکت» — اسیرکردن باسی که همین حالا گروه کشته است (فقط آسیب‌برتر)."""
+    """«اینفکت» — اسیرکردن باسی که همین حالا گروه کشته است (فقط آسیب‌برتر)."""
     p = player.get(user_id)
     if not p:
-        return False, "👤 اول «fw شروع» بزن."
+        return False, "👤 اول «شروع» بزن."
     inf = get(user_id)
     if inf:
         b = BOSSES[inf["boss_id"]]
@@ -98,7 +98,7 @@ def capture(user_id: int, chat_id: int) -> tuple:
     return True, (f"🧟 <b>اسیر شد!</b>\n"
                   f"{b['emoji']} {b['name']} حالا اینفکتدِ توست.\n"
                   f"⚙️ بونوس قدرت ارتش: +{tier * 8}٪\n"
-                  f"🗡 «fw هجوم [بازیکن]» — غارت و کنترل\n"
+                  f"🗡 «هجوم [بازیکن]» — غارت و کنترل\n"
                   f"⏳ تا {hours} ساعت بعد باید تازه‌اش کنی، وگرنه آزاد می‌شود "
                   f"و به ریدهای آزادِ این دنیا برمی‌گردد.")
 
@@ -112,7 +112,7 @@ def power_bonus(user_id: int) -> float:
 
 
 def raid(attacker_uid: int, target_uid: int) -> tuple:
-    """«fw هجوم [بازیکن]» — اینفکتد را به سرِ کسی بفرست: غارت + کنترلِ ساعتی."""
+    """«هجوم [بازیکن]» — اینفکتد را به سرِ کسی بفرست: غارت + کنترلِ ساعتی."""
     A = player.get(attacker_uid)
     D = player.get(target_uid)
     if not A or not D:
@@ -121,7 +121,7 @@ def raid(attacker_uid: int, target_uid: int) -> tuple:
         return False, "🧟 اینفکتدت خودت را هم می‌بلعد؛ نه."
     inf = get(attacker_uid)
     if not inf:
-        return False, "🧟 اینفکتد فعالی نداری. باسِ سقوط‌کرده‌ی گروه را اسیر کن: «fw اینفکت»"
+        return False, "🧟 اینفکتد فعالی نداری. باسِ سقوط‌کرده‌ی گروه را اسیر کن: «اینفکت»"
     if player.on_cd(attacker_uid, "inf_raid"):
         return False, f"⏳ اینفکتدت در حال بازیابی است — {player.cd_left(attacker_uid, 'inf_raid') // 3600 + 1} ساعت."
     if player.is_dead(D):
@@ -179,7 +179,7 @@ def cleanup():
 def status(user_id: int) -> tuple:
     p = player.get(user_id)
     if not p:
-        return False, "👤 اول «fw شروع» بزن."
+        return False, "👤 اول «شروع» بزن."
     inf = get(user_id)
     lines = ["🧟 <b>اینفکتد</b>", ""]
     if inf:
@@ -188,10 +188,10 @@ def status(user_id: int) -> tuple:
         lines += [f"{b['emoji']} <b>{b['name']}</b> — تیر {inf['tier']}",
                   f"⚙️ بونوس قدرت ارتش: +{inf['tier'] * 8}٪",
                   f"⏳ {h_left} ساعت تا فرار — تا آن موقع باسِ تازه‌ای اسیر کن",
-                  "🗡 «fw هجوم [بازیکن]» — غارت + کنترلِ ساعتی"]
+                  "🗡 «هجوم [بازیکن]» — غارت + کنترلِ ساعتی"]
     else:
         lines += ["فعالی نداری.",
-                  "باسِ گروه را بکُش؛ اگر آسیب‌برتر باشی، تا ۱۰ دقیقه فرصت داری: «fw اینفکت»"]
+                  "باسِ گروه را بکُش؛ اگر آسیب‌برتر باشی، تا ۱۰ دقیقه فرصت داری: «اینفکت»"]
     if (p["controlled_by"] or 0) and (p["controlled_until"] or 0) > db.now():
         c = player.get(p["controlled_by"])
         h = int((p["controlled_until"] - db.now()) / 3600) + 1

@@ -29,7 +29,7 @@ def activate(user_id: int, pass_type: str, days: int) -> tuple:
     db.db().ex("""UPDATE accounts SET pass_type=?, pass_until=?, pass_prem='[]'
                   WHERE user_id=?""", (pass_type, base + days * 86400, user_id))
     return True, (f"💎 <b>{PASSES[pass_type]['name']}</b> فعال شد!\n"
-                  f"⏳ تا {days} روز — مسیر پرمیوم باز است: «fw پاس»")
+                  f"⏳ تا {days} روز — مسیر پرمیوم باز است: «پاس»")
 
 
 def pass_text(user_id: int) -> str:
@@ -52,8 +52,8 @@ def pass_text(user_id: int) -> str:
         lines.append(f"پله {t}:")
         lines.append(f"  {fmark} 🆓 {free_txt}")
         lines.append(f"  {pmark} 💎 {prem_txt}")
-    lines.append("\n🎁 «fw جایزه پاس [پله] [رایگان|پرمیوم]»")
-    lines.append("🛒 خرید پاس: «fw خرید»")
+    lines.append("\n🎁 «جایزه پاس [پله] [رایگان|پرمیوم]»")
+    lines.append("🛒 خرید پاس: «خرید»")
     return "\n".join(lines)
 
 
@@ -67,7 +67,7 @@ def claim(user_id: int, tier: int, track: str) -> tuple:
     if track not in ("free", "prem"):
         return False, "💎 مسیر: رایگان یا پرمیوم"
     if track == "prem" and not s["active"]:
-        return False, "💎 مسیر پرمیوم فقط با پاس فعال — «fw خرید»"
+        return False, "💎 مسیر پرمیوم فقط با پاس فعال — «خرید»"
     claimed = s["free"] if track == "free" else s["prem"]
     if tier in claimed:
         return False, "✅ این پله را قبلاً گرفتی."

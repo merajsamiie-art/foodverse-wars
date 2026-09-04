@@ -27,7 +27,7 @@ def shift(user_id: int) -> tuple:
     """شیفت کارخانه — هر ۳ ساعت، درآمد کوچک + کمی منبع."""
     p = player.get(user_id)
     if not p:
-        return False, "👤 اول «fw شروع» بزن."
+        return False, "👤 اول «شروع» بزن."
     if player.on_cd(user_id, "shift"):
         return False, f"⏳ شیفت بعدی تا {player.cd_left(user_id, 'shift') // 60 + 1} دقیقه‌ی دیگر."
     fc = random.randint(*SHIFT_FC)
@@ -46,7 +46,7 @@ def patrol(user_id: int) -> tuple:
     """گشت محوطه — هر ۴۵ دقیقه، یافته‌های تصادفیِ کوچک."""
     p = player.get(user_id)
     if not p:
-        return False, "👤 اول «fw شروع» بزن."
+        return False, "👤 اول «شروع» بزن."
     if player.on_cd(user_id, "patrol"):
         return False, f"⏳ گشت بعدی تا {player.cd_left(user_id, 'patrol') // 60 + 1} دقیقه‌ی دیگر."
     player.set_cd(user_id, "patrol", PATROL_CD)
@@ -75,7 +75,7 @@ def patrol(user_id: int) -> tuple:
 
 def text_help() -> str:
     return ("💰 <b>درآمدهای فعالیت</b>\n\n"
-            "🏭 «fw شیفت» — هر ۳ ساعت، سکه و کمی منبع\n"
-            "🌙 «fw گشت» — هر ۴۵ دقیقه، یافته‌های کوچکِ شانسی\n"
-            "📅 «fw روزانه» — جایزه‌ی ورود + شش مأموریت روزانه\n\n"
+            "🏭 «شیفت» — هر ۳ ساعت، سکه و کمی منبع\n"
+            "🌙 «گشت» — هر ۴۵ دقیقه، یافته‌های کوچکِ شانسی\n"
+            "📅 «روزانه» — جایزه‌ی ورود + شش مأموریت روزانه\n\n"
             "این درآمدها کم هستند؛ کمک می‌کنند، پولدار نمی‌کنند.")

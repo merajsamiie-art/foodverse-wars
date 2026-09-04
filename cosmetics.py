@@ -22,13 +22,13 @@ def equip_text(user_id: int) -> str:
     lines.append(f"✨ افکت نبرد: {_name(p['cos_effect']) if p['cos_effect'] else '—'}")
     lines.append("")
     if not have:
-        lines.append("🎒 هنوز کازمتیکی نداری — از پک‌ها بگیر: «fw پک»")
+        lines.append("🎒 هنوز کازمتیکی نداری — از پک‌ها بگیر: «پک»")
     else:
         lines.append("موجود:")
         for cid in have:
             c = COSMETICS[cid]
             lines.append(f"{RARITY[c['rarity']][0]} {c['name']} ({KIND_FA[c['kind']]})")
-    lines.append("\n⚙️ «fw بپوش [نام کازمتیک]» | «fw دربیاور [نوع]»")
+    lines.append("\n⚙️ «بپوش [نام کازمتیک]» | «دربیاور [نوع]»")
     return "\n".join(lines)
 
 
@@ -53,7 +53,7 @@ def equip(user_id: int, ref: str) -> tuple:
         for k, c in COSMETICS.items():
             if ref in (k, c["name"], c["en"]):
                 return False, "🎨 این کازمتیک را نداری — از پک‌ها بگیر."
-        return False, "🎨 کازمتیک نامعتبر. «fw سفارشی»"
+        return False, "🎨 کازمتیک نامعتبر. «سفارشی»"
     c = COSMETICS[cid]
     field = "cos_" + c["kind"]
     db.db().ex(f"UPDATE accounts SET {field}=? WHERE user_id=?", (cid, user_id))

@@ -480,7 +480,7 @@ def test_registry_integrity():
 def test_texts():
     import texts
     import tutorials
-    assert "fw" in texts.HELP and texts.WELCOME_PRIVATE
+    assert "راهنما" in texts.HELP and texts.WELCOME_PRIVATE
     assert len(tutorials.TUTS) >= 5
 
 

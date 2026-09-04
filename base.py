@@ -107,5 +107,5 @@ def base_text(user_id: int) -> str:
         lines.append(f"{meta['emoji']} {meta['name']}: {'▮' * lv}{'▯' * (meta['maxlv'] - lv)} {lv} → {cost_s}")
     lines.append(f"\n🏝️ مستعمره‌ها: {p['colonies']}/{COLONY_MAX}" +
                  ("\n⏸ (تولید مستعمره موقتاً متوقف است)" if (p["colony_pause"] or 0) > player.now() else ""))
-    lines.append("🏗 «fw ارتقا [کارخانه]» | «fw مستعمره» | «fw غارت [ریپلای]»")
+    lines.append("🏗 «ارتقا [کارخانه]» | «مستعمره» | «غارت [ریپلای]»")
     return "\n".join(lines)

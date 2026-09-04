@@ -62,7 +62,7 @@ def prices_text() -> str:
         sell = int(cur * NPC_SELL_RATIO)
         lines.append(f"{m['emoji']} {m['name']}: خرید {cur} | فروش {sell} {trend}")
     out = "\n".join(lines) + ("\n\n📉 خرید زیاد گران می‌کند، فروش زیاد ارزان — بازار نفس می‌کشد."
-                              "\n🛒 «fw خرید منبع گوشت 10» | 💸 «fw فروش منبع فلز 5»")
+                              "\n🛒 «خرید منبع گوشت 10» | 💸 «فروش منبع فلز 5»")
     perf.LB_CACHE.set(("prices",), out)
     return out
 
@@ -110,7 +110,7 @@ def sell_item(user_id: int, chat_id: int, item_ref: str, qty: int, price: int) -
     p = player.get(user_id)
     iid = _resolve_item(item_ref)
     if not iid:
-        return False, "🔄 چنین کالایی نیست. «fw انبار»"
+        return False, "🔄 چنین کالایی نیست. «انبار»"
     it = ITEMS[iid]
     if it.get("kind") not in ("material", "booster", "equip"):
         return False, "🚫 این کالا قابل معامله نیست."
@@ -167,11 +167,11 @@ def market_text(chat_id: int, page: int = 0) -> str:
     page = max(0, min(page, pages - 1))
     if not rows:
         return ("🔄 <b>بازار این دنیا</b> — خالی است.\n"
-                "فروش: «fw بفروش [کالا] [تعداد] [قیمت]» | خرید: «fw برداشتن [شماره]»")
+                "فروش: «بفروش [کالا] [تعداد] [قیمت]» | خرید: «برداشتن [شماره]»")
     lines = [f"🔄 <b>بازار این دنیا</b> — صفحه {page + 1}/{pages}", ""]
     for l in rows[page * per:(page + 1) * per]:
         lines.append(f"#{l['id']} • {item_name(l['item_id'])} ×{l['qty']} → 🪙 {l['price']:,} سکه — {l['seller']}")
-    lines.append("\n🛒 «fw برداشتن [شماره]» | «fw بازار 2» برای صفحه‌ی بعد")
+    lines.append("\n🛒 «برداشتن [شماره]» | «بازار 2» برای صفحه‌ی بعد")
     return "\n".join(lines)
 
 

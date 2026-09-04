@@ -52,7 +52,7 @@ def declare(attacker_uid: int, defender_uid: int) -> tuple:
     with perf.key_lock(("war", attacker_uid, defender_uid)):
         a_stats, d_stats = army.army_stats(attacker_uid), army.army_stats(defender_uid)
         if a_stats["total"] < 3:
-            return False, "🪖 حداقل ۳ سرباز لازم است: «fw جذب برگر ۳»"
+            return False, "🪖 حداقل ۳ سرباز لازم است: «جذب برگر ۳»"
         player.set_cd(attacker_uid, "war", CD_WAR)
         player.break_protection(attacker_uid)   # مهاجم محافظتش را می‌بازد
 

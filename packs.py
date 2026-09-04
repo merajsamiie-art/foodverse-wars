@@ -27,10 +27,10 @@ def pack_text(user_id: int) -> str:
             if pk:
                 lines.append(f"{pk['emoji']} {pk['name']} ×{n}")
     else:
-        lines.append("— هیچ پکی نداری. «fw روزانه» و باس‌ها پک رایگان می‌دهند.")
+        lines.append("— هیچ پکی نداری. «روزانه» و باس‌ها پک رایگان می‌دهند.")
     pity_bonus = min(PITY_CAP, (p["pity"] or 0) * PITY_PER_PACK) * 100
     lines.append(f"\n🎁 <b>شانشِ جبران:</b> {p['pity'] or 0} پک بدون حماسی+ — شانس اضافه‌ی فعلی: {pity_bonus:.0f}٪")
-    lines.append("📂 «fw بازکردن [نام پک]» | 🛒 پک‌های فروشگاه: «fw فروشگاه»")
+    lines.append("📂 «بازکردن [نام پک]» | 🛒 پک‌های فروشگاه: «فروشگاه»")
     return "\n".join(lines)
 
 
@@ -81,13 +81,13 @@ def _roll_rarity(odds: dict, pity_bonus: float) -> str:
 def open_pack(user_id: int, pack_id: str) -> tuple:
     pk = PACKS.get(pack_id)
     if not pk:
-        return False, "📦 پک نامعتبر. «fw پک»"
+        return False, "📦 پک نامعتبر. «پک»"
     p = player.get(user_id)
     if player.on_cd(user_id, "pack"):
         return False, f"⏳ {player.cd_left(user_id, 'pack')} ثانیه — ضد دابل‌کلیک."
     iid = f"pack_{pack_id}"
     if player.inv(user_id).get(iid, 0) < 1:
-        return False, f"📦 {pk['name']} نداری. «fw پک»"
+        return False, f"📦 {pk['name']} نداری. «پک»"
     with perf.key_lock(("pack", user_id)):
         if not player.take_item(user_id, iid, 1):   # دوباره‌چک اتمی
             return False, "📦 پک پیدا نشد."

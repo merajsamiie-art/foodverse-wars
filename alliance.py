@@ -15,7 +15,7 @@ def my_alliance(user_id: int) -> dict:
 
 def create(user_id: int, chat_id: int, name: str) -> tuple:
     if not player.get(user_id):
-        return False, "👤 اول «fw شروع» بزن."
+        return False, "👤 اول «شروع» بزن."
     if my_alliance(user_id):
         return False, "🤝 قبلاً عضو اتحادی."
     name = (name or "").strip()[:24]
@@ -34,14 +34,14 @@ def create(user_id: int, chat_id: int, name: str) -> tuple:
         db.db().ex("INSERT INTO ally_members(user_id, alliance_id, joined) VALUES(?,?,?)",
                    (user_id, aid, db.now()))
     return True, (f"🤝 <b>اتحاد «{name}»</b> تأسیس شد!\n"
-                  f"عضویت: «fw عضویت {name}» | کمک: «fw کمک» | خروج: «fw ترک»")
+                  f"عضویت: «عضویت {name}» | کمک: «کمک» | خروج: «ترک»")
 
 
 def join(user_id: int, chat_id: int, name: str) -> tuple:
     if not player.get(user_id):
-        return False, "👤 اول «fw شروع» بزن."
+        return False, "👤 اول «شروع» بزن."
     if my_alliance(user_id):
-        return False, "🤝 قبلاً عضو اتحادی — اول «fw ترک»."
+        return False, "🤝 قبلاً عضو اتحادی — اول «ترک»."
     a = db.db().one("SELECT * FROM alliances WHERE chat_id=? AND name=?",
                     (chat_id, name.strip()))
     if not a:
@@ -129,7 +129,7 @@ def status_text(user_id: int) -> str:
     a = my_alliance(user_id)
     if not a:
         return (f"🤝 <b>بی‌اتحاد</b>\n"
-                f"تأسیس ({ALLY_CREATE_COST:,} سکه): «fw تأسیس [نام]» | عضویت: «fw عضویت [نام]»")
+                f"تأسیس ({ALLY_CREATE_COST:,} سکه): «تأسیس [نام]» | عضویت: «عضویت [نام]»")
     members = db.db().q("""SELECT a.name, a.avatar, a.level FROM accounts a
                            JOIN ally_members m ON m.user_id=a.user_id
                            WHERE m.alliance_id=? ORDER BY a.level DESC""", (a["id"],))
@@ -140,4 +140,4 @@ def status_text(user_id: int) -> str:
     return (f"🤝 <b>اتحاد {a['name']}</b>\n"
             f"🏦 خزانه: 🪙 {a['treasury_fc']:,.0f} سکه | {res_s}\n"
             f"👥 اعضا ({len(members)}/{ALLY_MAX}):\n{ml}\n"
-            f"🗡 «fw خیانت» — اگر جرئت داری.")
+            f"🗡 «خیانت» — اگر جرئت داری.")
