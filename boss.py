@@ -13,6 +13,15 @@ from registry import BOSSES, ITEMS
 
 TIER_BADGE = {1: "🥉 معمولی", 2: "🥈 شدید", 3: "🥇 کابوس"}
 
+# 🎩 آلبرت — ۴ ورژن؛ هر عقب‌نشینی → قوی‌تر برمی‌گردد. ورژن ۴: هیولای نهایی
+GRAND_PHASES = {
+    0: dict(mult=1.00, name="آلبرت، آشپز بزرگ",    head="هشدار نهایی",   extra=""),
+    1: dict(mult=1.35, name="آلبرتِ خشمگین",       head="هشدار نهایی",   extra="💢 دفعه‌ی قبل تأخیرش انداختید — حالا خشمگین‌تر برگشته!"),
+    2: dict(mult=1.75, name="آلبرتِ سوخته",        head="هشدار سرنوشت",  extra="🔥 پیش‌بندش سوخته و چشمانش سرخ است... قوی‌تر از همیشه."),
+    3: dict(mult=2.40, name="آلبرت — هیولای نهایی", head="💥 فراخوان نهایی",
+            extra="🩸 خودِ آشپزخانه‌ی مرکزی. نه انسان، نه آشپز — <b>هیولای نهایی</b>. خداحافظ نگویید."),
+}
+
 # 🧠 شخصیت باس‌ها — هر هوش، رفتار متفاوتی در نبرد دارد
 AI_NAME = {"berserk": "🔴 خشمک", "tricky": "🎭 حیله‌گر", "swarm": "🌊 سیلاب",
            "healer": "💚 شفادهنده", "thief": "🤑 دزد", "shadow": "🌫️ سایه",
@@ -119,24 +128,32 @@ def spawn_tick(chat_id: int, force: bool = False, tier: int | None = None) -> st
         bid = revenge
         db.db().ex("UPDATE worlds SET revenge_bid='', revenge_uid=0 WHERE chat_id=?", (chat_id,))
     elif kills >= 5 and not force:
-        # 🎩 هر ۵ کشتار گروهی — رییس‌کل می‌آید
+        # 🎩 هر ۵ کشتار گروهی — رییس‌کل می‌آید (قوی‌تر از دفعه‌ی قبل)
         bid = "grand_chef"
     else:
         bid = random.choice(pool)
     b = BOSSES[bid]
     is_revenge = bool(revenge) and bid == revenge and revenge_uid
+    grand_mult = 1.0
+    grand_p = {}
+    if bid == "grand_chef":
+        gp = min(3, (ch["grand_phase"] or 0) if ch else 0)
+        grand_p = GRAND_PHASES[gp]
+        grand_mult = grand_p["mult"]
     if tier is None:
         tier = 3 if force else _tier(chat_id)     # اسپاون اجباری ادمین = کابوس
-    hp = round(b["hp"] * (1 + BOSS_TIER_HP * (tier - 1)))
+    hp = round(b["hp"] * (1 + BOSS_TIER_HP * (tier - 1)) * grand_mult)
     db.db().ex("""UPDATE worlds SET boss_id=?, boss_hp=?, boss_max_hp=?, boss_until=?,
                   boss_tier=? WHERE chat_id=?""",
                (bid, hp, hp, t + BOSS_DURATION, tier, chat_id))
     db.db().ex("DELETE FROM boss_dmg WHERE chat_id=? AND boss_id=?", (chat_id, bid))
     if bid == "grand_chef":
-        head = ("🎩 <b>هشدار نهایی!</b>\n"
-                f"🎩 <b>{b['name']}</b> از آشپزخانه‌ی مرکزی آمد — {TIER_BADGE.get(tier, '')}\n"
+        gp = GRAND_PHASES[min(3, (ch["grand_phase"] or 0) if ch else 0)]
+        head = (f"🎩 <b>{gp['head']}!</b>\n"
+                f"🎩 <b>{gp['name']}</b> از آشپزخانه‌ی مرکزی آمد — {TIER_BADGE.get(tier, '')}\n"
                 "🩸 هوش: <b>فوق‌هوشِ نهایی</b> — همه‌ی هنرهای باس‌ها را یک‌جا دارد\n"
-                "⚠️ او را نمی‌کُشی؛ فقط می‌توانی تأخیرش بیندازی. ولی غنیمتش افسانه‌ای است.\n")
+                + (gp["extra"] + "\n" if gp["extra"] else "")
+                + "⚠️ او را نمی‌کُشی؛ فقط می‌توانی تأخیرش بیندازی. ولی غنیمتش افسانه‌ای است.\n")
     elif is_revenge:
         rv = player.get(revenge_uid)
         head = (f"🩸 <b>انتقام!</b>\n"
@@ -259,16 +276,25 @@ def _grand_retreat(chat_id: int, boss_id: str, last_uid: int) -> str:
     w = db.db().one("SELECT boss_stolen, boss_tier FROM worlds WHERE chat_id=?", (chat_id,))
     tier = (w["boss_tier"] if w else 1) or 1
     stolen = (w["boss_stolen"] if w else 0) or 0
-    loot_mult = (1 + BOSS_TIER_LOOT * (tier - 1)) * 1.5      # 🎩 غنیمت رییس‌کل: ۱.۵ برابر
+    ph = db.db().one("SELECT grand_phase FROM worlds WHERE chat_id=?", (chat_id,))
+    gp = (ph["grand_phase"] if ph else 0) or 0
+    loot_mult = (1 + BOSS_TIER_LOOT * (tier - 1)) * 1.5 * GRAND_PHASES[min(3, gp)]["mult"]  # 🎩 قوی‌تر = پول‌سازتر
     db.db().ex("""UPDATE worlds SET boss_id=NULL, boss_hp=0, boss_max_hp=0,
-                  boss_until=0, boss_tier=1, boss_stolen=0 WHERE chat_id=?""", (chat_id,))
+                  boss_until=0, boss_tier=1, boss_stolen=0,
+                  grand_phase=? WHERE chat_id=?""", ((0 if gp >= 3 else gp + 1), chat_id))
     _schedule_next(chat_id)
     rows = db.db().q("""SELECT bd.user_id, bd.dmg, a.name, a.avatar FROM boss_dmg bd
                         JOIN accounts a ON a.user_id=bd.user_id
                         WHERE bd.chat_id=? AND bd.boss_id=? AND bd.dmg>0
                         ORDER BY bd.dmg DESC LIMIT 5""", (chat_id, boss_id))
-    lines = ["\n🎩 <b>آلبرت عقب‌نشینی کرد!</b> — «بازی‌ی خوبی بود... برای شما.»",
-             "🏆 او را نکشتید — ولی احترامش را گرفتید. غنیمت پاشید:"]
+    pname = GRAND_PHASES[min(3, gp)]["name"]
+    if gp >= 3:
+        lines = [f"💥 <b>{pname} عقب‌نشینی کرد!</b> — «فصل بعد... هیچ‌کس نجات نمی‌گیرد.»",
+                 "🏆 هیولای نهایی را تا مرز سقوط بردید — غنیمتِ تاریخی پاشید:"]
+    else:
+        lines = ["\n🎩 <b>آلبرت عقب‌نشینی کرد!</b> — «بازی‌ی خوبی بود... برای شما.»",
+                 f"💢 دفعه‌ی بعد قوی‌تر برمی‌گردد: <b>{GRAND_PHASES[min(3, gp + 1)]['name']}</b>",
+                 "🏆 او را نکشتید — ولی احترامش را گرفتید. غنیمت پاشید:"]
     total = max(1.0, sum(r["dmg"] for r in rows))
     for i, r in enumerate(rows):
         share = int(b["loot"]["fc"][1] * (r["dmg"] / total) * 2.5

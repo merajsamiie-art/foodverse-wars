@@ -1319,3 +1319,55 @@ def test_boss_revenge_and_grand_chef():
             break
     assert "عقب‌نشینی کرد" in (msg or "") and "فودکوین" in (msg or "")   # 🎩 غنیمت پاشید
     assert not boss.active(CH)                                   # او رفت — نه مرد
+
+
+# ─── 👑 کینگ: تایتل + خوش‌آمد | 🎩 آلبرت ۴ ورژن ───
+def test_grand_chef_four_phases():
+    P.ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (CH,))
+    mk("گروه قهرمان", 6801)
+    army.recruit(6801, "pizza", 100)
+    base_hp = BOSSES["grand_chef"]["hp"]
+    for phase in range(4):
+        P.ex("UPDATE worlds SET boss_id=NULL, boss_hp=0, boss_until=0, boss_kills=5, "
+             "revenge_bid='', boss_next=1, last_boss_check=0, grand_phase=? WHERE chat_id=?",
+             (phase, CH))
+        msg = boss.spawn_tick(CH)
+        assert msg, phase
+        w = P.one("SELECT boss_max_hp, grand_phase, boss_tier FROM worlds WHERE chat_id=?", (CH,))
+        # هر فاز قوی‌تر: HP = پایه × تیر × ضریب فاز
+        from boss import GRAND_PHASES
+        from config import BOSS_TIER_HP
+        expect = round(base_hp * (1 + BOSS_TIER_HP * (w["boss_tier"] - 1))
+                       * GRAND_PHASES[phase]["mult"])
+        assert w["boss_max_hp"] == expect
+        if phase == 3:
+            assert "هیولای نهایی" in msg and "فراخوان نهایی" in msg
+        # عقب‌نشینی: فاز بعدی
+        P.ex("UPDATE worlds SET boss_hp=? WHERE chat_id=?", (w["boss_max_hp"] * 0.10, CH))
+        m = ""
+        for _ in range(10):
+            perf.cd_clear_all()
+            ok, m = boss.attack(6801, CH)
+            if not boss.active(CH):
+                break
+        assert "عقب‌نشینی" in (m or "")
+    # بعد از هیولای نهایی → ریست به فاز ۱
+    assert P.one("SELECT grand_phase FROM worlds WHERE chat_id=?", (CH,))["grand_phase"] == 0
+
+
+def test_king_title_and_fish_buttons():
+    # 👑 تایتل پادشاه فقط برای مالک
+    from handlers import _king_bootstrap
+    mk("مدعی", 6802)
+    _king_bootstrap(6802)                       # غیر از مالک → هیچ
+    assert not P.one("SELECT 1 FROM cosmetics WHERE user_id=? AND cid='title_king'", (6802,))
+    mk("پادشاه", 8694290031)
+    _king_bootstrap(8694290031)
+    assert P.one("SELECT 1 FROM cosmetics WHERE user_id=? AND cid='title_king'", (8694290031,))
+    assert player.get(8694290031)["cos_title"] == "title_king"
+    # فیش با دکمه تایید/رد برای ادمین
+    import ui
+    kb = ui.admin_order_kb("FW-999999")
+    assert "تأیید" in kb.inline_keyboard[0][0].text and "رد" in kb.inline_keyboard[0][1].text
+    from config import ADMIN_IDS
+    assert ADMIN_IDS == [8694290031]            # یک و فقط یک ادمین: مالک

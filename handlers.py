@@ -107,7 +107,19 @@ def _reg(m: Message) -> dict:
                         m.from_user.full_name or f"بازیکن{m.from_user.id}",
                         m.chat.id if m.chat.type != "private" else None)
     player.revive_if_due(m.from_user.id)
+    _king_bootstrap(m.from_user.id)
     return p
+
+
+def _king_bootstrap(uid: int):
+    """👑 تایتل «پادشاه فوودورس» — فقط و فقط مالک؛ همیشه روشن."""
+    if uid not in ADMIN_IDS or uid != 8694290031:
+        return
+    try:
+        db.db().ex("INSERT OR IGNORE INTO cosmetics(user_id, cid) VALUES(?, 'title_king')", (uid,))
+        db.db().ex("UPDATE accounts SET cos_title='title_king' WHERE user_id=?", (uid,))
+    except Exception:
+        pass
 
 
 def _guard(m: Message) -> dict | None:
@@ -1382,7 +1394,15 @@ async def on_text(m: Message):
 
 # ═══════════ Slash mirror ═══════════
 async def on_member_join(m: Message):
-    """بات به گروهی اضافه شد → توضیح کوتاه و ساده."""
+    """ورود اعضا: کینگ آمد → احترام! (ورود بات → توضیح شروع)"""
+    if m.new_chat_members:
+        for u in m.new_chat_members:
+            if u.id == 8694290031 and u.id != m.bot.id:
+                nm = u.full_name or "کینگ"
+                await _send(m, "👑 <b>کینگ اومد!</b> 👑\n\n"
+                               f"🎩 {nm} — مالک و پادشاه فوودورس وارد شد.\n"
+                               "همه بهش احترام بذارید! 🫡")
+                return
     if not m.new_chat_members or not any(u.id == m.bot.id for u in m.new_chat_members):
         return
     try:

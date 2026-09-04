@@ -160,7 +160,7 @@ class DB:
             "worlds": {"boss_tier": "INTEGER DEFAULT 1", "boss_pool": "TEXT DEFAULT ''",
                        "boss_next": "REAL DEFAULT 0", "boss_stolen": "REAL DEFAULT 0",
                        "revenge_bid": "TEXT DEFAULT ''", "revenge_uid": "INTEGER DEFAULT 0",
-                       "boss_kills": "INTEGER DEFAULT 0"},
+                       "boss_kills": "INTEGER DEFAULT 0", "grand_phase": "INTEGER DEFAULT 0"},
             "accounts": {"controlled_by": "INTEGER DEFAULT 0",
                          "controlled_until": "REAL DEFAULT 0",
                          "guide_step": "INTEGER DEFAULT 0",

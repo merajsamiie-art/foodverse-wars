@@ -182,6 +182,8 @@ def rarity_tag(iid: str) -> str:
 COSMETICS = {
     # عنوان ویژه
     "title_patron":  dict(name="حامی فوودورس", en="Foodverse Patron", kind="title", rarity="legend"),
+    "title_king":    dict(name="پادشاه فوودورس 👑", en="King of Foodverse", kind="title", rarity="mythic",
+                          desc="فقط مالک — پادشاهِ آشپزخانه‌ی مرکزی."),
     # فریم پروفایل
     "frame_bronze":   dict(name="فریم برنزی",     en="Bronze Frame",    kind="frame", rarity="common"),
     "frame_silver":   dict(name="فریم نقره‌ای",   en="Silver Frame",    kind="frame", rarity="rare"),
