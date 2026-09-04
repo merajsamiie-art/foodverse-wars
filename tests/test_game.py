@@ -1489,10 +1489,36 @@ def test_bot_msgs_cleanup():
 
 def test_menus_distinct():
     import ui
+    # 🍔 فقط یک منو — گروه و پیوی دقیقاً همان یک چیز را می‌بینند
     hub = [b.text for row in ui.hub_kb(1).inline_keyboard for b in row]
     menu = [b.text for row in ui.menu_kb(1).inline_keyboard for b in row]
-    assert "🧭 هاب شخصی من" in hub and "🎮 منوی بازی گروه" in menu
-    # هاب: شخصی (کارت/پک/پاس/خرید) | منوی گروه: بازی (باس/بازار/اتحاد)
-    assert "👤 کارت من" in hub and "💰 خرید فودکوین" in hub
-    assert "👑 باس" in menu and "🔄 بازار" in menu and "🤝 اتحاد" in menu
-    assert "🛍 فروشگاه ویژه" not in menu      # خرید در پیوی است، نه گروه
+    assert hub == menu and "🍔 منوی فوودورس" in menu
+    # همه‌چیز در همان یک منو: بازی + شخصی
+    assert "👑 باس" in menu and "🔄 بازار" in menu and "📦 پک‌های من" in menu
+    assert "💎 بتل‌پس" in menu and "🎨 ظاهر" in menu and "🛒 فروشگاه" in menu
+
+
+# ─── 🎯 دستور تکی + 👑 پروفایل مالک + 📚 آموزش کوتاه ───
+def test_solo_commands_only():
+    from handlers import SOLO_CMDS
+    # «شروع» و «درود» فقط خالی اجرا می‌شوند
+    assert "شروع" in SOLO_CMDS and "درود" in SOLO_CMDS and "منو" in SOLO_CMDS
+    # دستورهای پارامتری در این لیست نیستند
+    for c in ("جذب", "ارتقا", "گذاشتن", "انتقال", "بفروش", "خریدن", "جایزه", "سفارش"):
+        assert c not in SOLO_CMDS, c
+    src = open("handlers.py", encoding="utf-8").read()
+    assert "if cmd in SOLO_CMDS and rest:" in src   # «درود شروع کن» → سکوت
+
+
+def test_king_profile_special():
+    mk("پادشاه", 8694290031)
+    import handlers
+    txt = handlers.profile_text(player.get(8694290031))
+    assert "پادشاه و مالک فوودورس" in txt
+
+
+def test_tutorials_short():
+    import tutorials
+    assert len(tutorials.TUTS) == 6
+    for k, v in tutorials.TUTS.items():
+        assert 150 < len(v) < 450, (k, len(v))       # همه کوتاه

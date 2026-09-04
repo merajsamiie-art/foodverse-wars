@@ -381,7 +381,9 @@ async def cmd_menu(m: Message):
 def profile_text(p: dict) -> str:
     dead = "\n☠️ مرده — کمی صبر کن." if player.is_dead(p) else ""
     prot = "\n🛡 محافظت فعال." if player.is_protected(p) else ""
-    return (f"👤 <b>{p['avatar']} {p['name']}</b>\n"
+    king = "\n👑 <b>پادشاه و مالک فوودورس</b> — حرفه‌ای، ویژه، دست‌نخوردنی" \
+        if p["user_id"] == 8694290031 else ""
+    return (f"👤 <b>{p['avatar']} {p['name']}</b>{king}\n"
             f"🏆 {title_of(p['level'])} — سطح {p['level']} (تجربه {p['xp']:.0f})\n"
             f"🪙 {perf.fmt(p['fc'])} فودکوین | 💪 قدرت {perf.fmt(player.power_score(p))}\n"
             f"{player.res_line(p)}\n"
@@ -1227,6 +1229,16 @@ UNGATED = frozenset((
 
 
 CMD_GLOBAL_CD = 10   # ⏱ فاصله‌ی حداقلی بین دستورهای هر بازیکن — ضداسپم؛ گروه شلوغ نشود
+
+# 🎯 دستورهای تکی: فقط وقتی پیام همان یک کلمه باشد اجرا می‌شوند.
+# «شروع» اجرا می‌شود | «درود شروع کن» اجرا نمی‌شود — گفتگو گفتگوست، دستور دستور.
+SOLO_CMDS = frozenset((
+    "شروع", "منو", "من", "کارت", "روزانه", "فودکوین", "fc", "پایگاه", "ارتش",
+    "انبار", "باس", "اینفکت", "اینفکتد", "جنگ", "غارت", "مستعمره", "اتحاد",
+    "بازار", "رتبه", "رفرال", "دعوت", "آموزش", "راهنما", "پاس", "پک",
+    "فروشگاه", "گشت", "شیفت", "پیشنهاد", "نصیحت", "چیکارکنم", "درود",
+    "وان‌شات", "ترک", "خیانت", "هجوم", "تجهیز",
+))
 SPAM_STRIKES = 8          # ⚠️ ۸ برخورد با گیت در ۶۰ ثانیه = اسپمر
 SPAM_SILENCE_S = 180      # 🤐 سکوت موقت ۳ دقیقه
 
@@ -1351,6 +1363,8 @@ async def on_text(m: Message):
     if p0["banned"] and cmd != "مدیر":
         return
     rest = body[len(cmd):].strip()
+    if cmd in SOLO_CMDS and rest:
+        return   # 💬 «درود شروع کن» گفتگوست، نه دستور — دستور فقط خالی اجرا می‌شود
     a = parts[1] if len(parts) > 1 else ""
     b2 = parts[2] if len(parts) > 2 else ""
     c3 = parts[3] if len(parts) > 3 else ""
