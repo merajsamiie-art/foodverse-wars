@@ -81,16 +81,16 @@ def _roll_rarity(odds: dict, pity_bonus: float) -> str:
 def open_pack(user_id: int, pack_id: str) -> tuple:
     pk = PACKS.get(pack_id)
     if not pk:
-        return False, "📦 پک نامعتبر. «پک»"
+        return False, "📦 پک نامعتبر. «پک»", None
     p = player.get(user_id)
     if player.on_cd(user_id, "pack"):
-        return False, f"⏳ {player.cd_left(user_id, 'pack')} ثانیه — ضد دابل‌کلیک."
+        return False, f"⏳ {player.cd_left(user_id, 'pack')} ثانیه — ضد دابل‌کلیک.", None
     iid = f"pack_{pack_id}"
     if player.inv(user_id).get(iid, 0) < 1:
-        return False, f"📦 {pk['name']} نداری. «پک»"
+        return False, f"📦 {pk['name']} نداری. «پک»", None
     with perf.key_lock(("pack", user_id)):
         if not player.take_item(user_id, iid, 1):   # دوباره‌چک اتمی
-            return False, "📦 پک پیدا نشد."
+            return False, "📦 پک پیدا نشد.", None
         player.set_cd(user_id, "pack", PACK_OPEN_CD)
         p = player.get(user_id)
         pity = p["pity"] or 0
@@ -111,18 +111,35 @@ def open_pack(user_id: int, pack_id: str) -> tuple:
             new_pity = 0 if got_epic_plus else pity + 1
             db.db().ex("UPDATE accounts SET pity=?, packs_opened=packs_opened+1 WHERE user_id=?",
                        (new_pity, user_id))
-        # 🎬 نمایش سینمایی
+        # 🎬 نمایش سینمایی — رول + رنگ کمیابی + سورپرایز در اسپویلر
+        order = {"mythic": 5, "legendary": 4, "epic": 3, "rare": 2, "common": 1}
+        best = max((r for r, _ in results), key=lambda r: order.get(r, 0))
         lines = [f"{pk['emoji']} <b>{pk['name']} باز شد!</b>", ""]
         gtxt = " ".join(f"🪙 {v} فودکوین" if k == "fc" else f"{v} {k}" for k, v in pk["guaranteed"].items())
         lines.append(f"🎁 تضمینی: {gtxt}")
         lines.append("")
         for rar, txt in results:
-            lines.append(f"{RARITY[rar][0]} {txt}")
+            roll = _roll_display(pk["odds"], rar)
+            name_only = txt.split("\n")[0]
+            lines.append(f"🎲 {roll} از ۱۰۰ {RARITY[rar][0]} → <tg-spoiler>{name_only}</tg-spoiler>")
         if got_epic_plus:
             lines.append("\n✨ شانسِ جبران شما صفر شد.")
         elif pity > 0:
             lines.append(f"\n🎁 شانسِ جبران: {pity + 1} پک بدون حماسی+")
-        return True, "\n".join(lines)
+        return True, "\n".join(lines), f"crate_{best}"
+
+
+def _roll_display(odds: dict, rar: str) -> int:
+    """عدد رول ۱-۱۰۰ برای نمایش — دقیقاً در نوارِ شانس همان کمیابی."""
+    # نوار از کمیابی‌های بالاتر شروع می‌شود؛ عددی داخل نوار خودش
+    hi = {"mythic": 100, "legendary": 100, "epic": 100, "rare": 100, "common": 100}
+    lo = 100
+    for r in ("mythic", "legendary", "epic", "rare"):
+        lo -= int(odds.get(r, 0) * 100)
+        if r == rar:
+            return random.randint(max(1, lo + 1), hi[r])
+    # common: هرچه ماند
+    return random.randint(1, max(2, lo))
 
 
 def _grant_loot(user_id: int, key: str, rar: str) -> tuple:

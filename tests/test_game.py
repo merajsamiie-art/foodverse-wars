@@ -32,6 +32,7 @@ import packs
 import passsys
 import payments
 import refer
+import trade
 import texts
 import tutorials
 import rank
@@ -273,7 +274,7 @@ def test_pack_open_guaranteed():
     mk("پک‌باز", 4027)
     packs.give_pack(4027, "free_pack")
     perf.cd_clear_all()
-    ok, msg = packs.open_pack(4027, "free_pack")
+    ok, msg, _img = packs.open_pack(4027, "free_pack")
     assert ok and "تضمینی" in msg
     assert player.get(4027)["packs_opened"] == 1
 
@@ -283,7 +284,7 @@ def test_pack_pity_counts():
     P.ex("UPDATE accounts SET pity=5 WHERE user_id=?", (4028,))
     packs.give_pack(4028, "free_pack")
     perf.cd_clear_all()
-    ok, msg = packs.open_pack(4028, "free_pack")
+    ok, msg, _img = packs.open_pack(4028, "free_pack")
     assert ok
     pity = player.get(4028)["pity"]
     assert pity in (0, 6)   # یا حماسی+ آمد (ریست) یا یکی اضافه شد
@@ -301,8 +302,8 @@ def test_pack_cd_double_click():
     packs.give_pack(4029, "free_pack")
     packs.give_pack(4029, "free_pack")
     perf.cd_clear_all()
-    ok1, _ = packs.open_pack(4029, "free_pack")
-    ok2, msg2 = packs.open_pack(4029, "free_pack")
+    ok1, _m1, _i1 = packs.open_pack(4029, "free_pack")
+    ok2, msg2, _i2 = packs.open_pack(4029, "free_pack")
     assert ok1 and not ok2 and "ثانیه" in msg2
 
 
@@ -949,3 +950,79 @@ def test_run_py_poll_loop_exists():
     src = open("run.py", encoding="utf-8").read()
     assert "poll_forever" in src and "asyncio.sleep(5)" in src   # استراحت هوشمند
     assert "timeout=25" in src                                   # long-poll
+
+
+# ─── مبادله‌ی دوطرفه + گاچای اسپویلری ───
+def test_trade_full_flow():
+    mk("تاجر الف", 6401); mk("تاجر ب", 6402)
+    player.grant(6401, fc=5000); player.grant(6402, meat=1000)
+    fc0 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6401,))["fc"]
+    m0 = P.one("SELECT meat FROM accounts WHERE user_id=?", (6402,))["meat"]
+    # خودمعاملی ممنوع
+    assert not trade.open_trade(CH, 6401, 6401)[0]
+    # باز + اسکرو دو طرف
+    ok, msg = trade.open_trade(CH, 6401, 6402)
+    assert ok and "معامله #" in msg
+    assert trade.add_item(CH, 6401, "فودکوین", 500)[0]
+    assert trade.add_item(CH, 6402, "گوشت", 300)[0]
+    assert P.one("SELECT fc FROM accounts WHERE user_id=?", (6401,))["fc"] == fc0 - 500
+    # نداشته → رد
+    assert not trade.add_item(CH, 6401, "کریستال", 99999)[0]
+    # تایید یک‌طرفه → قفل ادیت
+    ok, msg = trade.confirm(CH, 6401)
+    assert ok and "منتظر" in msg
+    assert not trade.add_item(CH, 6402, "گوشت", 10)[0]      # ادیت بعد تایید ممنوع
+    # تایید دوم → اجرای اتمیک
+    ok, msg = trade.confirm(CH, 6402)
+    assert ok and "انجام شد" in msg
+    assert P.one("SELECT meat FROM accounts WHERE user_id=?", (6401,))["meat"] == 10000 + 300
+    assert P.one("SELECT meat FROM accounts WHERE user_id=?", (6402,))["meat"] == m0 - 300
+    assert P.one("SELECT fc FROM accounts WHERE user_id=?", (6401,))["fc"] == fc0 - 500 + 0
+    assert P.one("SELECT fc FROM accounts WHERE user_id=?", (6402,))["fc"] == 100000 + 500
+    # معامله‌ی تمام‌شده دیگر باز نیست
+    assert not trade.confirm(CH, 6401)[0]
+
+
+def test_trade_cancel_and_expiry():
+    mk("صراف", 6411); mk("مشتری", 6412)
+    player.grant(6411, fc=2000)
+    fc0 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6411,))["fc"]
+    trade.open_trade(CH, 6411, 6412)
+    trade.add_item(CH, 6411, "فودکوین", 800)
+    assert P.one("SELECT fc FROM accounts WHERE user_id=?", (6411,))["fc"] == fc0 - 800
+    # لغو → برگشت کامل
+    ok, msg = trade.cancel(CH, 6411)
+    assert ok and "برگشت" in msg
+    assert P.one("SELECT fc FROM accounts WHERE user_id=?", (6411,))["fc"] == fc0
+    # انقضای خودکار
+    trade.open_trade(CH, 6411, 6412)
+    trade.add_item(CH, 6411, "فودکوین", 300)
+    P.ex("UPDATE trades SET updated_at=? WHERE status='open'", (time.time() - 700,))
+    assert trade.expire_stale() >= 1
+    assert P.one("SELECT fc FROM accounts WHERE user_id=?", (6411,))["fc"] == fc0
+
+
+def test_trade_infected_boss():
+    mk("شکارچی", 6421); mk("خریدار باس", 6422)
+    P.ex("""INSERT INTO infected(user_id,boss_id,tier,world_chat,captured_at,expires_at)
+            VALUES(?,?,?,?,?,?)""", (6421, "meow_king", 2, CH, time.time(), time.time() + 86400))
+    trade.open_trade(CH, 6421, 6422)
+    assert trade.add_item(CH, 6421, "میو کینگ", 1)[0]        # تشخیص فازی باس
+    # کسی که باس ندارد → پیام روشن
+    assert not trade.add_item(CH, 6422, "لازاگنی", 1)[0]
+    player.grant(6422, fc=5000)
+    assert trade.add_item(CH, 6422, "فودکوین", 1000)[0]
+    trade.confirm(CH, 6421)
+    ok, _ = trade.confirm(CH, 6422)
+    assert ok
+    inf = P.one("SELECT * FROM infected WHERE boss_id='meow_king'")
+    assert inf["user_id"] == 6422 and inf["tier"] == 2        # مالکیت + تیر منتقل شد
+
+
+def test_pack_gacha_display():
+    mk("قمارباز", 6431)
+    player.add_item(6431, "pack_starter_pack", 1)
+    ok, msg, img = packs.open_pack(6431, "starter_pack")
+    assert ok and img.startswith("crate_")
+    assert "از ۱۰۰" in msg            # رول نمایشی
+    assert "<tg-spoiler>" in msg      # سورپرایز در اسپویلر

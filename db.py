@@ -73,6 +73,19 @@ CREATE TABLE IF NOT EXISTS listings(
   chat_id INTEGER, seller_uid INTEGER, item_id TEXT, qty INTEGER, price REAL,
   active INTEGER DEFAULT 1, created_at REAL, buyer_uid INTEGER
 );
+-- 🔄 مبادله‌ی دوطرفه (اسکرو + تایید هر دو طرف)
+CREATE TABLE IF NOT EXISTS trades(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id INTEGER, a_uid INTEGER, b_uid INTEGER,
+  status TEXT DEFAULT 'open',   -- open: در حال گذاشتن | locked: تایید شده | done | cancelled
+  a_ok INTEGER DEFAULT 0, b_ok INTEGER DEFAULT 0,
+  created_at REAL, updated_at REAL
+);
+CREATE TABLE IF NOT EXISTS trade_items(
+  trade_id INTEGER, uid INTEGER, kind TEXT, ref TEXT, qty INTEGER,
+  meta TEXT DEFAULT '',
+  PRIMARY KEY(trade_id, uid, kind, ref)
+);
 CREATE TABLE IF NOT EXISTS txlog(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   chat_id INTEGER, user_id INTEGER, kind TEXT, detail TEXT, at REAL

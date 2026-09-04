@@ -116,6 +116,72 @@ async def cmd_start(m: Message):
         await _send(m, wait_msg or texts.WORLD_WAITING.format(n=count, need=MIN_PLAYERS))
 
 
+def _parse_qty(a: str, b2: str):
+    """«گذاشتن برگر ۵» یا «گذاشتن ۵ برگر» → (ref, qty)"""
+    if a and a.translate(_DIG).isdigit():
+        return b2, int(a.translate(_DIG))
+    if b2 and b2.translate(_DIG).isdigit():
+        return a, int(b2.translate(_DIG))
+    return f"{a} {b2}".strip(), 1
+
+
+async def cmd_trade(m: Message, body: str):
+    p = _guard(m)
+    if not p:
+        return
+    if m.chat.type == "private":
+        await _send(m, "🔄 مبادله فقط در گروه‌ها انجام می‌شود.")
+        return
+    import trade as tr
+    if body and body.strip() != "لغو":
+        await _send(m, "🔄 روی پیام طرف ریپلای کن و «معامله» بزن.")
+        return
+    if "لغو" in (body or ""):
+        await _send(m, tr.cancel(m.chat.id, m.from_user.id)[1])
+        return
+    if not m.reply_to_message or not m.reply_to_message.from_user:
+        t = tr.my_trade(m.chat.id, m.from_user.id)
+        if t:
+            await _send(m, f"🔄 <b>معامله‌ی فعال #{t['id']}</b>\n\n" + tr._render(t["id"]))
+        else:
+            await _send(m, "🔄 روی پیام طرف ریپلای کن و «معامله» بزن.\n"
+                          "راهنما: «گذاشتن [چیز] [تعداد]» → «تایید» هر دو طرف → تحویل اتمیک.")
+        return
+    if m.reply_to_message.from_user.id == m.bot.id:
+        await _send(m, "🔄 ربات معامله نمی‌کند، فقط ناظر است. 👁")
+        return
+    await _send(m, tr.open_trade(m.chat.id, m.from_user.id,
+                                 m.reply_to_message.from_user.id)[1])
+
+
+async def cmd_trade_put(m: Message, a: str, b2: str):
+    p = _guard(m)
+    if not p:
+        return
+    import trade as tr
+    ref, qty = _parse_qty(a, b2)
+    ok, msg = tr.add_item(m.chat.id, m.from_user.id, ref, qty)
+    await _send(m, msg)
+
+
+async def cmd_trade_take(m: Message, a: str, b2: str):
+    p = _guard(m)
+    if not p:
+        return
+    import trade as tr
+    ref, qty = _parse_qty(a, b2)
+    ok, msg = tr.remove_item(m.chat.id, m.from_user.id, ref, qty or 99)
+    await _send(m, msg)
+
+
+async def cmd_trade_confirm(m: Message):
+    p = _guard(m)
+    if not p:
+        return
+    import trade as tr
+    await _send(m, tr.confirm(m.chat.id, m.from_user.id)[1])
+
+
 async def cmd_referral(m: Message):
     p = _reg(m)
     if p["banned"]:
@@ -482,8 +548,10 @@ async def cmd_open_pack(m: Message, ref: str):
     if player.on_cd(m.from_user.id, "pack"):
         await _react_quiet(m, "⏳")
         return
-    ok, msg = packs.open_pack(m.from_user.id, pid)
-    await _send(m, msg)
+    ok, msg, img_key = packs.open_pack(m.from_user.id, pid)
+    sent = await media.send(m.bot, m.chat.id, img_key, caption=msg)
+    if not sent:
+        await _send(m, msg)   # تصویر نبود؟ متن تنها
 
 
 async def cmd_odds(m: Message, ref: str):
@@ -932,6 +1000,7 @@ CMD_WORDS = frozenset((
     "ارتش", "جذب", "جنگ", "باس", "شیفت", "گشت", "اینفکت", "اینفکتد", "هجوم",
     "شخصیت", "ساخت", "تفریخ", "انبار", "تجهیز", "پک", "بازکردن", "شانس",
     "فروشگاه", "خریدن", "خرید", "فروش", "بفروش", "برداشتن", "قیمت", "قیمت‌ها",
+    "معامله", "گذاشتن", "درآوردن", "تایید",
     "پاس", "جایزه", "سفارشی", "بپوش", "دربیاور", "سفارش", "لغو", "رسید",
     "رتبه", "مدیر", "اتحاد", "تأسیس", "عضویت", "ترک", "کمک", "خیانت",
     "راهنما", "آموزش",
@@ -1073,6 +1142,14 @@ async def on_text(m: Message):
         await cmd_start(m)
     elif cmd in ("رفرال", "دعوت"):
         await cmd_referral(m)
+    elif cmd == "معامله":
+        await cmd_trade(m, rest)
+    elif cmd == "گذاشتن":
+        await cmd_trade_put(m, a, b2)
+    elif cmd == "درآوردن":
+        await cmd_trade_take(m, a, b2)
+    elif cmd == "تایید":
+        await cmd_trade_confirm(m)
     elif cmd == "منو":
         await cmd_menu(m)
     elif cmd == "من":
@@ -1162,7 +1239,11 @@ async def on_text(m: Message):
     elif cmd == "سفارش":
         await cmd_order(m, rest)
     elif cmd == "لغو":
-        await cmd_cancel_order(m)
+        if "معامله" in rest:
+            import trade as tr
+            await _send(m, tr.cancel(m.chat.id, m.from_user.id)[1])
+        else:
+            await cmd_cancel_order(m)
     elif cmd == "رسید":
         await cmd_receipt_text(m, rest)
     elif cmd == "رتبه":
