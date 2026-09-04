@@ -956,8 +956,10 @@ def test_indexes_exist():
 
 def test_run_py_poll_loop_exists():
     src = open("run.py", encoding="utf-8").read()
-    assert "poll_forever" in src and "asyncio.sleep(5)" in src   # استراحت هوشمند
-    assert "timeout=25" in src                                   # long-poll
+    assert "poll_forever" in src and "asyncio.sleep(5)" in src   # استراحت فقط ۵-۷ صبح
+    assert "5 <= h < 7" in src                                   # پنجره‌ی استراحت دقیق
+    assert "timeout=10 if resting else 25" in src                # استراحت سبک | روز/شب پرقدرت
+    assert "asyncio.sleep(0)" in src                             # ⚡ شب: صفر تأخیر
 
 
 # ─── مبادله‌ی دوطرفه + گاچای اسپویلری ───
@@ -1164,13 +1166,14 @@ def test_prices_fair_range():
 
 
 def test_pack_pass_bonus():
+    import random as _rnd
     mk("بلیت‌دار", 6521)
     passsys.activate(6521, "weekly", 7)
     txt = packs.odds_text("epic_pack", 6521)
     assert "بتل‌پس فعال" in txt                          # شفاف برای بازیکن
-    # بونوس واقعاً اعمال می‌شود: با ۳۰۰ پک، پاس‌دار باید حماسی+ بیشتری بگیرد
     mk("بی‌بلیت", 6522)
-    def count_epic(uid):
+    def count_epic(uid, seed):
+        _rnd.seed(seed)                                  # قطعی — نه شانسی
         n = 0
         for _ in range(150):
             player.add_item(uid, "pack_epic_pack", 1)
@@ -1178,9 +1181,9 @@ def test_pack_pass_bonus():
             if "🟣" in msg or "🟠" in msg or "🔴" in msg:
                 n += 1
         return n
-    with_pass = count_epic(6521)
-    without = count_epic(6522)
-    assert with_pass >= without                          # پاس هرگز بدتر نیست
+    with_pass = count_epic(6521, 7)
+    without = count_epic(6522, 7)                        # همان seed → همان شانس پایه
+    assert with_pass >= without                          # بونوس پاس هرگز بدتر نمی‌کند
 
 
 # ─── 🛡 امنیت: ضدچیت + ضداسپم + پرداخت سالم ───

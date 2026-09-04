@@ -82,15 +82,19 @@ async def main():
 
 
 async def poll_forever(bot, dp):
-    """🔄 پولینگ با استراحت هوشمند:
-    • long-poll ۲۵ ثانیه (بی‌کار = تقریباً بدون درخواست)
-    • ساعات خلوت (۱ تا ۷ بامداد تهران) و بی‌کاری → ۵ ثانیه خواب اضافه
-    • همیشه روشن ۲۴/۷ — فقط نفس می‌کشد، خاموش نمی‌شود."""
+    """🔄 پولینگ با استراحت دقیق:
+    • فقط ۵ تا ۷ صبح تهران: نفس عمیق (long-poll کوتاه‌تر + ۵ ثانیه خواب) — ولی فعال و پاسخ‌گو
+    • بقیه‌ی ساعات (مخصوصا شب): پرقدرت — بدون هیچ خواب اضافه، فوری پاسخ می‌دهد
+    • همیشه روشن ۲۴/۷ — هرگز خاموش نمی‌شود."""
     offset = 0
     while True:
         try:
-            updates = await bot.get_updates(offset=offset, timeout=25,
-                                            allowed_updates=["message", "callback_query"])
+            h = datetime.datetime.now(cfg.TZ).hour
+            resting = 5 <= h < 7                    # 😴 فقط ۵ تا ۷ صبح
+            updates = await bot.get_updates(
+                offset=offset,
+                timeout=10 if resting else 25,      # استراحت: چک سبک‌تر | روز/شب: full-speed
+                allowed_updates=["message", "callback_query"])
         except TelegramConflictError:
             log.error("⛔ getUpdates conflict — یک نمونه‌ی دیگر بات را اجرا کرده. خارج می‌شوم تا GHA ری‌استارت کند.")
             raise SystemExit(2)
@@ -99,8 +103,7 @@ async def poll_forever(bot, dp):
             await asyncio.sleep(3)
             continue
         if not updates:
-            h = datetime.datetime.now(cfg.TZ).hour
-            if 1 <= h < 7:          # 😴 ساعات خلوت — چند ثانیه استراحت
+            if resting:                             # 😴 فقط در پنجره‌ی استراحت
                 await asyncio.sleep(5)
             continue
         for u in updates:
@@ -110,7 +113,7 @@ async def poll_forever(bot, dp):
             except Exception:
                 perf.STATS.errors += 1
                 log.exception("update error")
-        await asyncio.sleep(0)
+        await asyncio.sleep(0)                      # ⚡ شب و روز: صفر تأخیر
 
 
 if __name__ == "__main__":
