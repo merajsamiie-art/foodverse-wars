@@ -13,21 +13,25 @@ def private_kb(bot_username: str, group_link: str) -> InlineKeyboardMarkup:
 
 
 def hub_kb(user_id: int) -> InlineKeyboardMarkup:
+    """🧭 هاب شخصی — فقط در پیوی: چیزهای خودِ تو."""
     b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
     return InlineKeyboardMarkup(inline_keyboard=[
-        [b("👤 کارت من", "card"), b("🎨 سفارشی‌سازی", "cosmetic")],
-        [b("📦 پک‌های من", "packs"), b("💎 بتل‌پس", "pass")],
-        [b("🛒 فروشگاه", "shop"), b("🛍 فروشگاه ویژه", "store")],
+        [b("🧭 هاب شخصی من", "hub")],
+        [b("👤 کارت من", "card"), b("🎨 ظاهر من", "cosmetic")],
+        [b("📦 پک‌های من", "packs"), b("💎 بتل‌پس من", "pass")],
+        [b("💰 خرید فودکوین", "store"), b("🛒 فروشگاه", "shop")],
         [b("🎁 روزانه", "daily"), b("📖 آموزش", "help")],
     ])
 
 
 def menu_kb(user_id: int) -> InlineKeyboardMarkup:
+    """🎮 منوی بازی — فقط در گروه: بازی گروهی و جنگ."""
     b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
     return InlineKeyboardMarkup(inline_keyboard=[
+        [b("🎮 منوی بازی گروه", "me")],
         [b("👤 پروفایل", "me"), b("🏠 پایگاه", "base"), b("🪖 ارتش", "army")],
-        [b("🎒 انبار", "inv"), b("🛠 ساخت", "craft"), b("👑 باس", "boss")],
-        [b("🤝 اتحاد", "ally"), b("🔄 بازار", "market"), b("🏆 رتبه", "top")],
+        [b("👑 باس", "boss"), b("🔄 بازار", "market"), b("🏆 رتبه", "top")],
+        [b("🎒 انبار", "inv"), b("🛠 ساخت", "craft"), b("🤝 اتحاد", "ally")],
         [b("🎁 روزانه", "daily"), b("📖 آموزش", "help")],
     ])
 

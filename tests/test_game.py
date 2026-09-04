@@ -505,7 +505,7 @@ def test_registry_integrity():
 def test_texts():
     import texts
     import tutorials
-    assert "راهنما" in texts.HELP and texts.WELCOME_PRIVATE
+    assert "قدم‌به‌قدم" in texts.HELP and "هدف بازی" in texts.HELP and texts.WELCOME_PRIVATE
     assert len(tutorials.TUTS) >= 5
 
 
@@ -1458,3 +1458,41 @@ def test_gate_fast_membership():
     # FC/Fc/fc همه جواب می‌گیرند (چک CMD_WORDS lowercase-tolerant)
     assert "_fw.lower() not in CMD_WORDS" in src
     assert "fc" in handlers.CMD_WORDS
+
+
+# ─── 🧹 پاک‌سازی + اعداد فارسی + منوهای متمایز ───
+def test_persian_numbers_everywhere():
+    from handlers import _num, _is_num
+    assert _num("۵") == 5 and _num("٥") == 5 and _num("12") == 12 and _num("x", 7) == 7
+    assert _is_num("۵۰۰") and _is_num("500") and not _is_num("برگر")
+    # هندلر جذب: عدد فارسی → همان تعداد (نه ۱)
+    src = open("handlers.py", encoding="utf-8").read()
+    assert "_num(count)" in src
+
+
+def test_bot_msgs_cleanup():
+    # ثبت و انتخاب پیام‌های قدیمی برای پاک‌سازی
+    P.ex("DELETE FROM bot_msgs")
+    now = time.time()
+    P.ex("INSERT INTO bot_msgs VALUES(?,?,?)", (-1001, 11, now - 700))   # قدیمی → پاک
+    P.ex("INSERT INTO bot_msgs VALUES(?,?,?)", (-1001, 12, now - 100))   # تازه → ماند
+    rows = P.q("SELECT message_id FROM bot_msgs WHERE at < ? AND chat_id < 0", (now - 600,))
+    assert [r["message_id"] for r in rows] == [11]
+    # فیش‌ها هرگز در bot_msgs نیستند (به پیوی می‌روند، نه گروه)
+    assert P.q("SELECT COUNT(*) c FROM bot_msgs WHERE chat_id > 0")[0]["c"] == 0
+    # تنظیمات حلقه
+    import run
+    assert run.CLEANUP_EVERY == 40 and run.BOT_MSG_TTL == 600
+    src = open("run.py", encoding="utf-8").read()
+    assert "pinned_message" in src            # پین‌شده‌ها محافظت می‌شوند
+
+
+def test_menus_distinct():
+    import ui
+    hub = [b.text for row in ui.hub_kb(1).inline_keyboard for b in row]
+    menu = [b.text for row in ui.menu_kb(1).inline_keyboard for b in row]
+    assert "🧭 هاب شخصی من" in hub and "🎮 منوی بازی گروه" in menu
+    # هاب: شخصی (کارت/پک/پاس/خرید) | منوی گروه: بازی (باس/بازار/اتحاد)
+    assert "👤 کارت من" in hub and "💰 خرید فودکوین" in hub
+    assert "👑 باس" in menu and "🔄 بازار" in menu and "🤝 اتحاد" in menu
+    assert "🛍 فروشگاه ویژه" not in menu      # خرید در پیوی است، نه گروه

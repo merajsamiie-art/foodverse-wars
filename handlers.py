@@ -172,6 +172,19 @@ async def cmd_start(m: Message):
         await _send(m, wait_msg or texts.WORLD_WAITING.format(n=count, need=MIN_PLAYERS))
 
 
+def _num(x: str, dflt=1) -> int:
+    """عدد فارسی/عربی/لاتین → int؛ نامعتبر → dflt"""
+    try:
+        v = (x or "").translate(_DIG)
+        return int(v) if v.isdigit() else dflt
+    except Exception:
+        return dflt
+
+
+def _is_num(x: str) -> bool:
+    return bool((x or "").translate(_DIG).isdigit())
+
+
 def _parse_qty(a: str, b2: str):
     """«گذاشتن برگر ۵» یا «گذاشتن ۵ برگر» → (ref, qty)"""
     if a and a.translate(_DIG).isdigit():
@@ -222,7 +235,7 @@ async def cmd_transfer(m: Message, a: str):
         await _send(m, "💸 به خودت منتقل نکن — همان‌جا هست.")
         return
     amt = a.translate(_DIG) if a else ""
-    if not amt.isdigit() or int(amt) < 1:
+    if not _is_num(a) or int(a.translate(_DIG)) < 1:
         await _send(m, "🔢 مقدار درست بگو: «انتقال ۵۰۰»")
         return
     amt = int(amt)
@@ -508,7 +521,7 @@ async def cmd_recruit(m: Message, ref: str, count: str):
     if not uid:
         await _send(m, "🪖 " + " | ".join(f"{u['emoji']} {u['name']}" for u in UNITS.values() if u.get("cost")))
         return
-    n = int(count) if count.isdigit() else 1
+    n = max(1, min(_num(count), 50))               # عدد فارسی هم فهمیده می‌شود
     ok, msg = army.recruit(m.from_user.id, uid, n)
     if ok:
         msg += player.advance_guide(m.from_user.id, "recruit")
@@ -732,7 +745,7 @@ async def cmd_pass(m: Message):
 
 async def cmd_pass_claim(m: Message, tier: str, track: str):
     _reg(m)
-    if not tier.isdigit():
+    if not _is_num(tier):
         await _send(m, "🎁 «جایزه پاس [پله] [رایگان|پرمیوم]»")
         return
     tr = "prem" if "پرمیوم" in track else "free"
@@ -817,7 +830,7 @@ async def cmd_market(m: Message, page: str = "0"):
     p = _guard(m)
     if not p:
         return
-    await _send(m, market.market_text(m.chat.id, int(page) if page.isdigit() else 0))
+    await _send(m, market.market_text(m.chat.id, _num(page, 0)))
 
 
 async def cmd_prices(m: Message):
@@ -825,18 +838,18 @@ async def cmd_prices(m: Message):
 
 
 async def cmd_npc_buy(m: Message, ref: str, qty: str):
-        await _send(m, market.npc_buy(m.from_user.id, ref, int(qty) if qty.isdigit() else 1)[1])
+        await _send(m, market.npc_buy(m.from_user.id, ref, _num(qty))[1])
 
 
 async def cmd_npc_sell(m: Message, ref: str, qty: str):
-        await _send(m, market.npc_sell(m.from_user.id, ref, int(qty) if qty.isdigit() else 1)[1])
+        await _send(m, market.npc_sell(m.from_user.id, ref, _num(qty))[1])
 
 
 async def cmd_sell_item(m: Message, ref: str, qty: str, price: str):
     p = _guard(m)
     if not p:
         return
-    if not (qty.isdigit() and price.isdigit()):
+    if not (_is_num(qty) and _is_num(price)):
         await _send(m, "🔄 «بفروش [کالا] [تعداد] [قیمت]»")
         return
     await _send(m, market.sell_item(m.from_user.id, m.chat.id, ref, int(qty), int(price))[1])
@@ -846,7 +859,7 @@ async def cmd_buy_listing(m: Message, ref: str):
     p = _guard(m)
     if not p:
         return
-    if not ref.isdigit():
+    if not _is_num(ref):
         await _send(m, "🛒 «برداشتن [شماره‌ی آگهی]»")
         return
     await _send(m, market.buy_listing(m.from_user.id, m.chat.id, int(ref))[1])
@@ -879,7 +892,7 @@ async def cmd_ally(m: Message, rest: str):
         bits = arg.split()
         qty = bits[1] if len(bits) > 1 else "1"
         await _send(m, alliance.help_(m.from_user.id, bits[0],
-                                      int(qty) if qty.isdigit() else 1)[1])
+                                      _num(qty))[1])
     elif sub == "خیانت":
         ok, msg = alliance.betray(m.from_user.id)
         await _send(m, msg, feed=ok)
@@ -1006,7 +1019,7 @@ async def cmd_admin(m: Message, rest: str):
     elif sub == "قیمت" and arg:
         # «قیمت [محصول] [تومان]» → تغییر قیمت محصول
         bits = arg.split()
-        if len(bits) == 2 and bits[1].isdigit():
+        if len(bits) == 2 and _is_num(bits[1]):
             prod = payments._resolve_product(bits[0])
             if prod:
                 db.db().ex("INSERT OR REPLACE INTO kv(k, v) VALUES(?,?)",
@@ -1080,7 +1093,7 @@ async def on_callback(c: CallbackQuery):
         "craft": lambda: craft.craft_text(uid),
         "boss": lambda: boss_status_text(chat_id),
         "ally": lambda: alliance.status_text(uid),
-        "market": lambda: market.market_text(chat_id, int(arg) if arg.isdigit() else 0),
+        "market": lambda: market.market_text(chat_id, _num(arg, 0)),
         "top": lambda: rank.board_text("group", "power", chat_id),
         "topg": lambda: rank.board_text("global", "power", chat_id),
         "daily": lambda: player.daily(uid)[1],

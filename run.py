@@ -69,6 +69,7 @@ async def main():
     eng = events.EventEngine(bot, interval=900)
     eng.start()
     log.info("🍔 FOODVERSE WARS ONLINE")
+    asyncio.get_running_loop().create_task(cleanup_loop(bot))   # 🧹 نظافتچی هر ۴۰ ثانیه
     try:
         await poll_forever(bot, dp)
     except SystemExit:
@@ -79,6 +80,44 @@ async def main():
         except Exception:
             pass
         db.db().close()
+
+
+BOT_MSG_TTL = 600          # 🧹 پیام‌های ربات در گروه بعد از ۱۰ دقیقه پاک می‌شوند
+CLEANUP_EVERY = 40         # هر ۴۰ ثانیه یک چرخه
+
+
+async def cleanup_loop(bot):
+    """🧹 نظافتچی: هر ۴۰ ثانیه پیام‌های قدیمیِ ربات در گروه‌ها را پاک می‌کند
+    تا گروه شلوغ نشود. پین‌شده‌ها و فیش‌ها هرگز پاک نمی‌شوند."""
+    while True:
+        await asyncio.sleep(CLEANUP_EVERY)
+        try:
+            rows = db.db().q(
+                "SELECT chat_id, message_id FROM bot_msgs WHERE at < ? LIMIT 25",
+                (db.now() - BOT_MSG_TTL,))
+            if not rows:
+                continue
+            pins = {}
+            for r0 in rows:   # پینِ هر چت فقط یک بار چک می‌شود
+                if r0["chat_id"] not in pins:
+                    try:
+                        chat = await bot.get_chat(r0["chat_id"])
+                        pm = getattr(chat, "pinned_message", None)
+                        pins[r0["chat_id"]] = pm.message_id if pm else 0
+                    except Exception:
+                        pins[r0["chat_id"]] = 0
+                if r0["message_id"] == pins.get(r0["chat_id"]):
+                    db.db().ex("DELETE FROM bot_msgs WHERE chat_id=? AND message_id=?",
+                               (r0["chat_id"], r0["message_id"]))   # پین است — نگه می‌داریم
+                    continue
+                try:
+                    await bot.delete_message(r0["chat_id"], r0["message_id"])
+                except Exception:
+                    pass
+                db.db().ex("DELETE FROM bot_msgs WHERE chat_id=? AND message_id=?",
+                           (r0["chat_id"], r0["message_id"]))
+        except Exception as e:
+            log.warning(f"cleanup: {e}")
 
 
 async def poll_forever(bot, dp):

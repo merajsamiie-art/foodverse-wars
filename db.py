@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS worlds(
   boss_id TEXT, boss_hp REAL, boss_max_hp REAL, boss_until REAL,
   last_boss_check REAL DEFAULT 0, boss_next REAL DEFAULT 0, boss_stolen REAL DEFAULT 0
 );
+-- 🧹 پیام‌های ربات در گروه‌ها — پاک‌سازی خودکار
+CREATE TABLE IF NOT EXISTS bot_msgs(
+  chat_id INTEGER, message_id INTEGER, at REAL,
+  PRIMARY KEY(chat_id, message_id)
+);
+
 -- 👤 حساب جهانی — همه‌چیز با Telegram User ID
 CREATE TABLE IF NOT EXISTS accounts(
   user_id INTEGER PRIMARY KEY,
