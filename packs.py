@@ -29,7 +29,7 @@ def pack_text(user_id: int) -> str:
     else:
         lines.append("— هیچ پکی نداری. «fw روزانه» و باس‌ها پک رایگان می‌دهند.")
     pity_bonus = min(PITY_CAP, (p["pity"] or 0) * PITY_PER_PACK) * 100
-    lines.append(f"\n🎁 <b>Pity:</b> {p['pity'] or 0} پک بدون حماسی+ — شانس اضافه‌ی فعلی: {pity_bonus:.0f}٪")
+    lines.append(f"\n🎁 <b>شانشِ جبران:</b> {p['pity'] or 0} پک بدون حماسی+ — شانس اضافه‌ی فعلی: {pity_bonus:.0f}٪")
     lines.append("📂 «fw بازکردن [نام پک]» | 🛒 پک‌های فروشگاه: «fw فروشگاه»")
     return "\n".join(lines)
 
@@ -43,9 +43,9 @@ def odds_text(pack_id: str) -> str:
         if chance > 0:
             lines.append(f"{RARITY[rar][0]} {RARITY[rar][1]}: {chance * 100:.1f}٪")
     g = pk["guaranteed"]
-    gtxt = " ".join(f"🪙 {v} FC" if k == "fc" else f"{v} {k}" for k, v in g.items())
+    gtxt = " ".join(f"🪙 {v} سکه" if k == "fc" else f"{v} {k}" for k, v in g.items())
     lines.append(f"\n🎁 تضمینی: {gtxt}")
-    lines.append(f"🎲 قرعه: {pk['pulls']} کشش + Pity")
+    lines.append(f"🎲 قرعه: {pk['pulls']} کشش + شانسِ جبران")
     return "\n".join(lines)
 
 
@@ -61,7 +61,7 @@ def _weighted(table: list) -> str:
 
 
 def _roll_rarity(odds: dict, pity_bonus: float) -> str:
-    """Pity فقط شانس Rare→Epic→Legendary را بالا می‌برد؛ Mythic خاص می‌ماند."""
+    """شانشِ جبران فقط شانسِ کمیاب→حماسی→افسانه‌ای را بالا می‌برد؛ اسطوره‌ای خاص می‌ماند."""
     o = dict(odds)
     if pity_bonus > 0:
         lift = min(pity_bonus, 0.30)
@@ -113,26 +113,26 @@ def open_pack(user_id: int, pack_id: str) -> tuple:
                        (new_pity, user_id))
         # 🎬 نمایش سینمایی
         lines = [f"{pk['emoji']} <b>{pk['name']} باز شد!</b>", ""]
-        gtxt = " ".join(f"🪙 {v} FC" if k == "fc" else f"{v} {k}" for k, v in pk["guaranteed"].items())
+        gtxt = " ".join(f"🪙 {v} سکه" if k == "fc" else f"{v} {k}" for k, v in pk["guaranteed"].items())
         lines.append(f"🎁 تضمینی: {gtxt}")
         lines.append("")
         for rar, txt in results:
             lines.append(f"{RARITY[rar][0]} {txt}")
         if got_epic_plus:
-            lines.append("\n✨ شانس Pity شما صفر شد.")
+            lines.append("\n✨ شانسِ جبران شما صفر شد.")
         elif pity > 0:
-            lines.append(f"\n🎁 Pity: {pity + 1} پک بدون حماسی+")
+            lines.append(f"\n🎁 شانسِ جبران: {pity + 1} پک بدون حماسی+")
         return True, "\n".join(lines)
 
 
 def _grant_loot(user_id: int, key: str, rar: str) -> tuple:
-    """اعطای جایزه: کازمتیک یا آیتم؛ تکراری → FC."""
+    """اعطای جایزه: کازمتیک یا آیتم؛ تکراری → سکه."""
     if key in COSMETICS:
         owned = db.db().one("SELECT 1 FROM cosmetics WHERE user_id=? AND cid=?", (user_id, key))
         if owned:
             val = DUPLICATE_VALUE.get(rar, 200)
             player.grant(user_id, fc=val)
-            return rar, f"{COSMETICS[key]['name']} (داشتی!) → 🪙 {val} FC"
+            return rar, f"{COSMETICS[key]['name']} (داشتی!) → 🪙 {val} سکه"
         db.db().ex("INSERT OR IGNORE INTO cosmetics(user_id, cid) VALUES(?,?)", (user_id, key))
         c = COSMETICS[key]
         return rar, f"<b>{c['name']}</b>\n{c['en']}"
@@ -143,4 +143,4 @@ def _grant_loot(user_id: int, key: str, rar: str) -> tuple:
     # fallback
     val = DUPLICATE_VALUE.get(rar, 200)
     player.grant(user_id, fc=val)
-    return rar, f"🪙 {val} FC"
+    return rar, f"🪙 {val} سکه"

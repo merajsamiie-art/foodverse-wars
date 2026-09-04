@@ -137,7 +137,7 @@ def attack(user_id: int, chat_id: int) -> tuple:
                f"⚔️ {p['avatar']} {p['name']}: <b>{dmg:,.0f}</b> آسیب"
                + (f" (🚀 بوستر ×{1 + boost:.1f})" if boost else "") + "\n"
                f"💢 ضدحمله‌ی باس! 💔 تلفات تو: {sum(lost.values())}"
-               + ("\n😡 <b>BERSERK MODE</b> — باس خشمگین است!" if rage else ""))
+               + ("\n😡 <b>خشمِ دیوانه‌وار!</b> — باس برافروخته است!" if rage else ""))
 
         if new_hp <= 0:
             msg += _finish(chat_id, w["boss_id"], user_id)

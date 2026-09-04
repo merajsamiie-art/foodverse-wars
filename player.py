@@ -120,7 +120,7 @@ def gain_xp(user_id: int, amount: float) -> list:
     while new_xp >= xp_need(lv) and lv < 99:
         new_xp -= xp_need(lv)
         lv += 1
-        msgs.append(f"🎉 <b>LEVEL UP → {lv}</b> — {title_of(lv)}")
+        msgs.append(f"🎉 <b>سطح بالا → {lv}</b> — {title_of(lv)}")
     update(user_id, xp=new_xp, level=lv)
     return msgs
 
@@ -157,7 +157,7 @@ def is_dead(p: dict) -> bool:
 
 
 def die(user_id: int, killer_name: str = "") -> dict:
-    """💀 مرگ: ۶ دقیقه مرده + drop بخشی از منابع (تجهیزات محفوظ) + احیا با محافظت."""
+    """💀 مرگ: ۶ دقیقه مرده + بخشی از منابع می‌افتد (تجهیزات محفوظ) + احیا با محافظت."""
     p = get(user_id)
     drop = {}
     for r in ("meat", "cheese", "sauce", "potato", "metal", "crystal"):
@@ -207,7 +207,7 @@ def daily(user_id: int) -> tuple:
         grant(user_id, fc=fc, **{r: DAILY_REWARD_RES for r in BASIC_RES})
         update(user_id, last_daily=t, daily_streak=streak)
         gain_xp(user_id, XP_DAILY)
-        lines.append(f"🎁 جایزه‌ی ورود (استریک {streak}×): 🪙 {fc} FC + بسته‌ی منابع")
+        lines.append(f"🎁 جایزه‌ی ورود (استریک {streak}×): 🪙 {fc} سکه + بسته‌ی منابع")
     missions = [
         ("war_wins", 1, "یک نبرد ببر"),
         ("recruits", 5, "۵ سرباز جذب کن"),
@@ -229,7 +229,7 @@ def daily(user_id: int) -> tuple:
             extra = f" + 📦 {PACKS['free_pack']['name']}"
         db.db().ex("UPDATE daily SET claimed=1 WHERE user_id=? AND day=?", (user_id, day))
         gain_xp(user_id, 50)
-        lines.append(f"📅 <b>مأموریت روزانه کامل!</b> 🪙 +{reward} FC + 💎 ۳ کریستال{extra}")
+        lines.append(f"📅 <b>مأموریت روزانه کامل!</b> 🪙 +{reward} سکه + 💎 ۳ کریستال{extra}")
     elif d["claimed"]:
         lines.append("📅 مأموریت امروز: ✅ تمام شد.")
     else:
@@ -248,7 +248,7 @@ def dtrack(user_id: int, field: str, n: int = 1):
 def reroll_avatar(user_id: int) -> tuple:
     p = get(user_id)
     if p["fc"] < AVATAR_REROLL:
-        return False, f"🪙 تغییر چهره {AVATAR_REROLL} FC می‌خواهد."
+        return False, f"🪙 تغییر چهره {AVATAR_REROLL} سکه می‌خواهد."
     new = random.choice([a for a in AVATARS if a != p["avatar"]])
     update(user_id, fc=p["fc"] - AVATAR_REROLL, avatar=new)
     return True, f"🎭 چهره‌ی جدید: {new}"

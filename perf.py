@@ -122,7 +122,7 @@ class Stats:
     def text(self) -> str:
         up = time.time() - self.t0
         h, rem = int(up // 3600), int(up % 3600)
-        return (f"📊 <b>FOODVERSE STATS</b> (آپ‌تایم {h}س {rem}د)\n"
+        return (f"📊 <b>آمار فوودورس</b> (آپ‌تایم {h}س {rem}د)\n"
                 f"💬 پیام: {self.msgs:,} | ⌨️ دستور: {self.commands:,} | 👆 دکمه: {self.callbacks:,}\n"
                 f"🚦 تراتل‌شده: {self.throttled:,} | ❌ خطا: {self.errors:,}\n"
                 f"🧠 کش قدرت: {POWER_CACHE.ratio()} | کش رتبه: {LB_CACHE.ratio()}")

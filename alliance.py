@@ -24,7 +24,7 @@ def create(user_id: int, chat_id: int, name: str) -> tuple:
     if db.db().one("SELECT 1 FROM alliances WHERE chat_id=? AND name=?", (chat_id, name)):
         return False, "🤝 این نام در این دنیا ثبت شده."
     if player.get(user_id)["fc"] < ALLY_CREATE_COST:
-        return False, f"🪙 تأسیس اتحاد {ALLY_CREATE_COST} FC می‌خواهد."
+        return False, f"🪙 تأسیس اتحاد {ALLY_CREATE_COST:,} سکه می‌خواهد."
     with db.db().tx():
         player.pay(user_id, dict(fc=ALLY_CREATE_COST))
         db.db().ex("INSERT INTO alliances(chat_id, name, owner_uid, created_at) VALUES(?,?,?,?)",
@@ -120,7 +120,7 @@ def betray(user_id: int) -> tuple:
         db.db().ex("INSERT INTO txlog(chat_id, user_id, kind, detail, at) VALUES(?,?,?,?,?)",
                    (a["chat_id"], user_id, "betray", f"{a['name']} -{fc_steal}", db.now()))
     msg = (f"🗡 <b>خیانت!</b>\n"
-           f"{p['avatar']} {p['name']} اتحاد «{a['name']}» را لو داد و 🪙 {fc_steal:,.0f} FC برداشت!\n"
+           f"{p['avatar']} {p['name']} اتحاد «{a['name']}» را لو داد و 🪙 {fc_steal:,.0f} سکه برداشت!\n"
            f"🚫 ۴۸ ساعت نمی‌تواند دوباره خیانت کند — و هیچ‌کس فراموش نمی‌کند.")
     return True, msg
 
@@ -129,7 +129,7 @@ def status_text(user_id: int) -> str:
     a = my_alliance(user_id)
     if not a:
         return (f"🤝 <b>بی‌اتحاد</b>\n"
-                f"تأسیس ({ALLY_CREATE_COST} FC): «fw تأسیس [نام]» | عضویت: «fw عضویت [نام]»")
+                f"تأسیس ({ALLY_CREATE_COST:,} سکه): «fw تأسیس [نام]» | عضویت: «fw عضویت [نام]»")
     members = db.db().q("""SELECT a.name, a.avatar, a.level FROM accounts a
                            JOIN ally_members m ON m.user_id=a.user_id
                            WHERE m.alliance_id=? ORDER BY a.level DESC""", (a["id"],))
@@ -138,6 +138,6 @@ def status_text(user_id: int) -> str:
     res_s = " ".join(f"{RES_META[k]['emoji']}{v}" for k, v in res.items()) or "—"
     ml = "\n".join(f"• {m_['avatar']} {m_['name']} (لِوِل {m_['level']})" for m_ in members)
     return (f"🤝 <b>اتحاد {a['name']}</b>\n"
-            f"🏦 خزانه: 🪙 {a['treasury_fc']:,.0f} FC | {res_s}\n"
+            f"🏦 خزانه: 🪙 {a['treasury_fc']:,.0f} سکه | {res_s}\n"
             f"👥 اعضا ({len(members)}/{ALLY_MAX}):\n{ml}\n"
             f"🗡 «fw خیانت» — اگر جرئت داری.")

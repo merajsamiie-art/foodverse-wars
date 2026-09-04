@@ -78,7 +78,7 @@ def declare(attacker_uid: int, defender_uid: int) -> tuple:
             dmg = atk * random.uniform(0.85, 1.15) * ((1 + speed_edge) if rd == 1 else 1)
             if random.random() < crit_a:
                 dmg *= 1.6
-                rounds.append(f"R{rd}: 💥 کریت")
+                rounds.append(f"دور {rd}: 💥 ضربه‌ی مرگبار")
             eff = max(dmg * 0.25, dmg - dfn * 0.8)
             d_pool -= eff
             if d_stats["medic"]:
@@ -87,7 +87,7 @@ def declare(attacker_uid: int, defender_uid: int) -> tuple:
             if d_pool > 0:
                 back = d_stats["atk"] * random.uniform(0.7, 1.1) * (1 - min(0.3, speed_edge))
                 a_pool -= max(back * 0.25, back - a_stats["df"] * 0.6)
-            rounds.append(f"R{rd}: ⚔️ {eff:.0f}")
+            rounds.append(f"دور {rd}: ⚔️ {eff:.0f}")
 
         a_win = d_pool <= 0 and a_pool > 0
         draw = (d_pool <= 0 and a_pool <= 0) or (d_pool > 0 and a_pool > 0)
@@ -139,7 +139,7 @@ def declare(attacker_uid: int, defender_uid: int) -> tuple:
                f"{Wp['avatar']} <b>{Wp['name']}</b> 🏆 شکست داد {Lp['avatar']} <b>{Lp['name']}</b>\n"
                f"{' | '.join(rounds[:3])}\n"
                f"💀 تلفات: برنده {sum(wl.values())} | بازنده {sum(ll.values())}\n"
-               f"🎒 غنیمت: {st}" + (f" + 🪙 {fc_steal:.0f} FC" if fc_steal >= 1 else "") + "\n"
+               f"🎒 غنیمت: {st}" + (f" + 🪙 {fc_steal:.0f} سکه" if fc_steal >= 1 else "") + "\n"
                f"☠️ <b>{Lp['name']} از پا درآمد</b> — {death['minutes']} دقیقه مرگ، بعدش ۵ دقیقه محافظت.\n"
                f"📉 افت زمینی: {drop_txt or '—'}")
         return True, msg

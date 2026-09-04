@@ -74,7 +74,7 @@ def npc_buy(user_id: int, res: str, qty: int) -> tuple:
     qty = max(1, min(qty, BUY_LIMIT))
     price = get_price(res) * qty
     if p["fc"] < price:
-        return False, f"🪙 {RES_META[res]['name']} ×{qty} = {price} FC — کافی نداری."
+        return False, f"🪙 {RES_META[res]['name']} ×{qty} = {price} سکه — کافی نداری."
     if player.on_cd(user_id, "market"):
         return False, f"⏳ {player.cd_left(user_id, 'market')} ثانیه."
     with db.db().tx():
@@ -84,7 +84,7 @@ def npc_buy(user_id: int, res: str, qty: int) -> tuple:
     player.set_cd(user_id, "market", CD_MARKET)
     _log(None, user_id, "npc_buy", f"{res}x{qty}={price}")
     player.dtrack(user_id, "bought")
-    return True, f"🏦 خریدی: {RES_META[res]['emoji']} {RES_META[res]['name']} ×{qty} (−{price} FC)"
+    return True, f"🏦 خریدی: {RES_META[res]['emoji']} {RES_META[res]['name']} ×{qty} (−{price} سکه)"
 
 
 def npc_sell(user_id: int, res: str, qty: int) -> tuple:
@@ -102,7 +102,7 @@ def npc_sell(user_id: int, res: str, qty: int) -> tuple:
     player.set_cd(user_id, "market", CD_MARKET)
     player.dtrack(user_id, "sold")
     _log(None, user_id, "npc_sell", f"{res}x{qty}=+{gain}")
-    return True, f"🏦 فروختی: {RES_META[res]['emoji']} ×{qty} (+{gain} FC)"
+    return True, f"🏦 فروختی: {RES_META[res]['emoji']} ×{qty} (+{gain} سکه)"
 
 
 # ─── 🔄 بازار بازیکن‌ها ───
@@ -119,7 +119,7 @@ def sell_item(user_id: int, chat_id: int, item_ref: str, qty: int, price: int) -
         return False, "🎒 نداریش."
     price = max(1, min(int(price), MAX_LISTING_PRICE))
     if p["fc"] < LISTING_FEE:
-        return False, f"🪙 هزینه‌ی درج آگهی {LISTING_FEE} FC است."
+        return False, f"🪙 هزینه‌ی درج آگهی {LISTING_FEE} سکه است."
     if player.on_cd(user_id, "market"):
         return False, f"⏳ {player.cd_left(user_id, 'market')} ثانیه."
     with db.db().tx():
@@ -130,8 +130,8 @@ def sell_item(user_id: int, chat_id: int, item_ref: str, qty: int, price: int) -
                    (chat_id, user_id, iid, qty, price, db.now()))
     player.set_cd(user_id, "market", CD_MARKET)
     _log(chat_id, user_id, "list", f"{iid}x{qty}@{price}")
-    return True, (f"🔄 آگهی ثبت شد: {item_name(iid)} ×{qty} → {price} FC\n"
-                  f"(کارمزد درج {LISTING_FEE} FC | مالیات فروش {int(MARKET_TAX * 100)}٪)")
+    return True, (f"🔄 آگهی ثبت شد: {item_name(iid)} ×{qty} → {price} سکه\n"
+                  f"(کارمزد درج {LISTING_FEE} سکه | مالیات فروش {int(MARKET_TAX * 100)}٪)")
 
 
 def buy_listing(user_id: int, chat_id: int, listing_id: int) -> tuple:
@@ -143,7 +143,7 @@ def buy_listing(user_id: int, chat_id: int, listing_id: int) -> tuple:
         if l["seller_uid"] == user_id:
             return False, "🔄 آگهی خودت را نمی‌توانی بخری."
         if p["fc"] < l["price"]:
-            return False, f"🪙 قیمت {l['price']} FC — کافی نداری."
+            return False, f"🪙 قیمت {l['price']} سکه — کافی نداری."
         if player.inv_free(user_id) < 1:
             return False, "🎒 انبار پر است."
         with db.db().tx():
@@ -154,7 +154,7 @@ def buy_listing(user_id: int, chat_id: int, listing_id: int) -> tuple:
             db.db().ex("UPDATE listings SET active=0, buyer_uid=? WHERE id=?", (user_id, listing_id))
         _log(chat_id, user_id, "buy", f"L{listing_id} {l['item_id']}x{l['qty']}={l['price']}")
         _log(chat_id, l["seller_uid"], "sold", f"L{listing_id} +{net}")
-        return True, f"🛒 خریداری شد: {item_name(l['item_id'])} ×{l['qty']} (−{l['price']} FC)"
+        return True, f"🛒 خریداری شد: {item_name(l['item_id'])} ×{l['qty']} (−{l['price']} سکه)"
 
 
 def market_text(chat_id: int, page: int = 0) -> str:
@@ -170,7 +170,7 @@ def market_text(chat_id: int, page: int = 0) -> str:
                 "فروش: «fw بفروش [کالا] [تعداد] [قیمت]» | خرید: «fw برداشتن [شماره]»")
     lines = [f"🔄 <b>بازار این دنیا</b> — صفحه {page + 1}/{pages}", ""]
     for l in rows[page * per:(page + 1) * per]:
-        lines.append(f"#{l['id']} • {item_name(l['item_id'])} ×{l['qty']} → 🪙 {l['price']:,} FC — {l['seller']}")
+        lines.append(f"#{l['id']} • {item_name(l['item_id'])} ×{l['qty']} → 🪙 {l['price']:,} سکه — {l['seller']}")
     lines.append("\n🛒 «fw برداشتن [شماره]» | «fw بازار 2» برای صفحه‌ی بعد")
     return "\n".join(lines)
 
@@ -186,7 +186,7 @@ def price_history(chat_id: int, item_ref: str) -> str:
         return f"📊 {item_name(iid)}: هنوز معامله‌ای ثبت نشده."
     lines = [f"📊 <b>سابقه‌ی قیمت</b> — {item_name(iid)}"]
     for r in rows:
-        lines.append(f"• ×{r['qty']} → 🪙 {r['price']:,} FC")
+        lines.append(f"• ×{r['qty']} → 🪙 {r['price']:,} سکه")
     return "\n".join(lines)
 
 

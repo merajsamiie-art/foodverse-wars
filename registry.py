@@ -30,7 +30,7 @@ UNITS = {
 
 # ─── 🏠 ساختمان‌ها ───
 BUILDINGS = {
-    "factory":  dict(name="کارخانه",       emoji="🏭", desc="تولید FoodCoin در ساعت", maxlv=10,
+    "factory":  dict(name="کارخانه",       emoji="🏭", desc="سکه در هر ساعت تولید می‌کند", maxlv=10,
                      cost0=dict(fc=150, metal=30)),
     "lab":      dict(name="آزمایشگاه",     emoji="🔬", desc="استخراج کریستال", maxlv=10,
                      cost0=dict(fc=200, metal=50)),
@@ -211,7 +211,7 @@ LOOT_TABLES = {
     "mythic":    [("title_mythic", 3), ("fx_thunder", 3), ("lasagna_egg", 2), ("crown_meow", 2)],
 }
 
-# 🎖 جایزه‌ی FC جایگزین برای کازمتیک تکراری
+# 🎖 جایزه‌ی سکه جایگزین برای کازمتیک تکراری
 DUPLICATE_VALUE = dict(common=150, rare=400, epic=1200, legendary=3000, mythic=8000)
 
 

@@ -15,7 +15,7 @@ def owned(user_id: int) -> list:
 def equip_text(user_id: int) -> str:
     p = player.get(user_id)
     have = owned(user_id)
-    lines = ["🎨 <b>CUSTOMIZE — سفارشی‌سازی</b>", ""]
+    lines = ["🎨 <b>سفارشی‌سازی</b>", ""]
     lines.append(f"🖼️ فریم: {_name(p['cos_frame']) if p['cos_frame'] else '—'}")
     lines.append(f"🏷️ عنوان: {_name(p['cos_title']) if p['cos_title'] else title_default(p)}")
     lines.append(f"🎭 اسکین ارتش: {_name(p['cos_skin']) if p['cos_skin'] else 'پیش‌فرض'}")
@@ -57,7 +57,7 @@ def equip(user_id: int, ref: str) -> tuple:
     c = COSMETICS[cid]
     field = "cos_" + c["kind"]
     db.db().ex(f"UPDATE accounts SET {field}=? WHERE user_id=?", (cid, user_id))
-    return True, f"🎨 {c['name']}\n{c['en']}\nفعال شد! ({KIND_FA[c['kind']]})"
+    return True, f"🎨 {c['name']} فعال شد! ({KIND_FA[c['kind']]})"
 
 
 KIND_SHORT = dict(frame=("frame", "فریم", "قاب"), title=("title", "عنوان", "تاج"),

@@ -41,8 +41,8 @@ def pass_text(user_id: int) -> str:
         lines.append(f"🎖 {PASSES[s['ptype']]['name']} — فعال تا {end}")
     else:
         lines.append("🎖 پاس فعالی نداری (مسیر رایگان همیشه باز است!)")
-    lines.append(f"⭐ XP پاس: {perf.fmt(s['xp'])} | پله: {s['tier']}/{PASS_TIERS} "
-                 f"(هر پله {PASS_XP_PER_TIER} XP بازی)")
+    lines.append(f"⭐ تجربه‌ی پاس: {perf.fmt(s['xp'])} | پله: {s['tier']}/{PASS_TIERS} "
+                 f"(هر پله {PASS_XP_PER_TIER} تجربه)")
     lines.append("")
     from registry import pass_reward_text
     for t in (1, 5, 10, 15, PASS_TIERS):
@@ -63,7 +63,7 @@ def claim(user_id: int, tier: int, track: str) -> tuple:
         return False, f"💎 پله باید بین ۱ تا {PASS_TIERS} باشد."
     if tier > s["tier"]:
         need = tier * PASS_XP_PER_TIER
-        return False, f"🔒 پله {tier} هنوز باز نشده (XP پاس لازم: {need})."
+        return False, f"🔒 پله {tier} هنوز باز نشده (تجربه‌ی لازم: {need})."
     if track not in ("free", "prem"):
         return False, "💎 مسیر: رایگان یا پرمیوم"
     if track == "prem" and not s["active"]:
@@ -79,7 +79,7 @@ def claim(user_id: int, tier: int, track: str) -> tuple:
     for k, v in reward.items():
         if k == "fc":
             player.grant(user_id, fc=v)
-            msgs.append(f"🪙 {v} FC")
+            msgs.append(f"🪙 {v} سکه")
         elif k == "item":
             player.add_item(user_id, f"pack_{v}", 1)
             msgs.append(f"📦 پک {PACKS[v]['name']}")

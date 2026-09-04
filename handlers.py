@@ -114,7 +114,7 @@ def profile_text(p: dict) -> str:
     dead = "\n☠️ مرده — کمی صبر کن." if player.is_dead(p) else ""
     prot = "\n🛡 محافظت فعال." if player.is_protected(p) else ""
     return (f"👤 <b>{p['avatar']} {p['name']}</b>\n"
-            f"🏆 {title_of(p['level'])} — سطح {p['level']} (XP {p['xp']:.0f})\n"
+            f"🏆 {title_of(p['level'])} — سطح {p['level']} (تجربه {p['xp']:.0f})\n"
             f"🪙 {perf.fmt(p['fc'])} فودکوین | 💪 قدرت {perf.fmt(player.power_score(p))}\n"
             f"{player.res_line(p)}\n"
             f"⚔️ برد {p['wins']} | 💀 باخت {p['losses']} | 👑 باس {perf.fmt(p['boss_dmg'])} | "
@@ -629,7 +629,7 @@ async def cmd_admin(m: Message, rest: str):
         if len(bits) >= 2:
             await _send(m, admin.give(m.reply_to_message.from_user.id, bits[0], bits[1]))
         else:
-            await _send(m, "🎁 ریپلای + «fw مدیر هدیه fc 500»")
+            await _send(m, "🎁 ریپلای + «fw مدیر هدیه [شناسه] [چیز] [تعداد]»")
     elif sub == "باس":
         msg = boss.spawn_tick(m.chat.id, force=True)
         if msg:
@@ -648,7 +648,7 @@ async def cmd_admin(m: Message, rest: str):
             return
         fid = m.reply_to_message.photo[-1].file_id
         media.set_file_id(key, fid, "photo")
-        await _send(m, f"🖼 تصویر «{key}» ثبت شد (File ID ذخیره شد).")
+        await _send(m, f"🖼 تصویر «{key}» ثبت شد (شناسه‌ی فایل ذخیره شد — دیگر آپلود نمی‌شود).")
     elif sub == "پیش‌نمایش" and arg:
         msg = await media.send(m.bot, m.chat.id, arg.strip())
         await _send(m, "🖼 موجود نبود." if not msg else f"🖼 پیش‌نمایش «{arg}» ↑")
@@ -688,7 +688,7 @@ async def cmd_admin(m: Message, rest: str):
                 await m.bot.set_chat_photo(cid, FSInputFile(photo))
                 rep.append("✅ عکس گروه")
             else:
-                rep.append("❌ عکس: فایل brand_group در assets نیست")
+                rep.append("❌ عکس: فایل تصویر گروه در دارایی‌های بازی نیست")
         except Exception as e:
             rep.append(f"❌ عکس: {e}")
         try:
@@ -865,7 +865,7 @@ async def on_text(m: Message):
         if fchat and getattr(fchat, "type", "") in ("group", "supergroup"):
             db.db().ex("INSERT OR REPLACE INTO kv(k, v) VALUES(?,?)",
                        ("brand_target", str(fchat.id)))
-            await _send(m, f"🆔 گروه «{fchat.title}» ثبت شد — chat_id: <code>{fchat.id}</code>\n"
+            await _send(m, f"🆔 گروه «{fchat.title}» ثبت شد — شناسه‌ی عددی گروه: <code>{fchat.id}</code>\n"
                           "🎨 حالا «fw مدیر برند» را بفرست تا عنوان/عکس/توضیحات/پست معرفی ست شود.")
             return
     text = m.text.strip()
