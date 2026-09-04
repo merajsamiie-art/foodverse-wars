@@ -889,13 +889,14 @@ async def on_text(m: Message):
             return   # دستورهای ثبت‌شده‌ی رسمی و اسلشِ تنها
         text = (first + " " + tail).strip()
     low = text.lower()
+    # عادت قدیمی: کلمه‌ی پیشوند کاملاً نادیده گرفته می‌شود (fw جنگ = جنگ)
     if low in ("fw", "fw؟", "fw?"):
-        await _send(m, "🔔 دیگر پیشوند لازم نیست! فقط خود کلمه را بفرست — مثل: «منو» یا «راهنما»")
+        await _send(m, "🔔 فقط کلمه‌ی دستور را بفرست — مثل: «منو» یا «راهنما»")
         return
     if low.startswith("fw ") or low.startswith("fw‌"):
-        after = text[3:].strip() or "منو"
-        await _send(m, f"🔔 دیگر «fw» لازم نیست! همین‌طور بنویس: «{after}»")
-        return
+        text = text[3:].strip()
+        if not text:
+            return
     if text.split(maxsplit=1)[0] not in CMD_WORDS:
         return   # گفتگوی عادی → سکوت محترمانه
     body = text
