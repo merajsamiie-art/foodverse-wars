@@ -194,19 +194,19 @@ PACKS = {
                       guaranteed=dict(fc=600, metal=20),
                       pulls=2, odds=dict(common=0.45, rare=0.40, epic=0.13, legendary=0.02, mythic=0.0)),
     # 💰 پک‌های فروشگاه (تومان)
-    "starter_pack": dict(name="پک شروع", en="Starter Pack", emoji="🟢", price_toman=300000,
+    "starter_pack": dict(name="پک تازه‌کار", en="Starter Pack", emoji="🟢", price_toman=0, fc_price=2500,
                          guaranteed=dict(fc=2500, meat=150, metal=80),
                          pulls=3, odds=dict(common=0.70, rare=0.24, epic=0.05, legendary=0.01, mythic=0.0)),
-    "epic_pack": dict(name="پک حماسی", en="Epic Pack", emoji="🟣", price_toman=2000000,
+    "epic_pack": dict(name="پک حماسی", en="Epic Pack", emoji="🟣", price_toman=0, fc_price=9000,
                       guaranteed=dict(fc=8000, crystal=15),
                       pulls=4, odds=dict(common=0.40, rare=0.34, epic=0.21, legendary=0.045, mythic=0.005)),
-    "legend_pack": dict(name="پک افسانه‌ای", en="Legend Pack", emoji="🟠", price_toman=6000000,
+    "legend_pack": dict(name="پک افسانه", en="Legend Pack", emoji="🟠", price_toman=0, fc_price=30000,
                         guaranteed=dict(fc=15000, crystal=30),
                         pulls=5, odds=dict(common=0.28, rare=0.32, epic=0.28, legendary=0.10, mythic=0.02)),
-    "mythic_chest": dict(name="صندوق اسطوره‌ای", en="Mythic Chest", emoji="👑", price_toman=20000000,
+    "mythic_chest": dict(name="صندوق اسطوره", en="Mythic Chest", emoji="👑", price_toman=0, fc_price=110000,
                          guaranteed=dict(fc=25000, crystal=50),
                          pulls=5, odds=dict(common=0.15, rare=0.30, epic=0.35, legendary=0.17, mythic=0.03)),
-    "ultimate_chest": dict(name="صندوق نهایی فصل", en="Ultimate Season Chest", emoji="🌌", price_toman=60000000,
+    "ultimate_chest": dict(name="صندوق نهایی فصل", en="Ultimate Season Chest", emoji="🌌", price_toman=0, fc_price=350000,
                            guaranteed=dict(fc=40000, crystal=80),
                            pulls=6, odds=dict(common=0.10, rare=0.25, epic=0.35, legendary=0.24, mythic=0.06)),
 }
@@ -251,7 +251,8 @@ PASS_REWARDS = {
     5:  (dict(fc=800, meat=100),    dict(fc=1500, crystal=5)),
     10: (dict(fc=1500, metal=80),   dict(fc=3000, crystal=10, item="rare_pack")),
     15: (dict(fc=2500, sauce=120),  dict(fc=5000, crystal=15, item="free_pack")),
-    20: (dict(fc=4000, crystal=5),  dict(fc=10000, crystal=30, cosmetic="frame_neon")),
+    20: (dict(fc=5000, crystal=10), dict(fc=15000, crystal=40, item="legend_pack",
+                                          cosmetic="frame_neon")),
 }
 
 

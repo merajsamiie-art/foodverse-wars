@@ -55,8 +55,37 @@ def shop_text(user_id: int) -> str:
     lines.append("\n📅 <b>این هفته</b>:")
     for slot in w:
         lines.append(_slot_line(user_id, slot))
-    lines.append("\n🛒 «خریدن [نام کالا]» | پک‌های ویژه: «خرید»")
+    lines.append("\n📦 <b>پک‌ها</b> (همیشه موجود، خرید با فودکوین):")
+    for pid, pk in PACKS.items():
+        if pk.get("fc_price"):
+            lines.append(f"• {pk['emoji']} {pk['name']} — 🪙 {pk['fc_price']:,} فودکوین")
+    lines.append("\n🛒 «خریدن [نام کالا یا پک]» | فودکوین و پاس با پول: «خرید»")
     return "\n".join(lines)
+
+
+def _buy_pack_fc(user_id: int, pid: str) -> tuple:
+    """پک با فودکوین — سهمیه‌ی روزانه مثل بقیه‌ی فروشگاه."""
+    pk = PACKS[pid]
+    p = player.get(user_id)
+    if _user_bought(user_id, f"pack_{pid}") >= 2:
+        return False, "🛒 امروز ۲ تا از این پک گرفتی — فردا دوباره."
+    if player.on_cd(user_id, "market"):
+        return False, f"⏳ {player.cd_left(user_id, 'market')} ثانیه."
+    if p["fc"] < pk["fc_price"]:
+        return False, f"🪙 {pk['fc_price']:,} فودکوین لازم است — الان {int(p['fc']):,} داری."
+    with perf.key_lock(("shopbuy", user_id)):
+        with db.db().tx():
+            player.pay(user_id, dict(fc=pk["fc_price"]))
+            player.add_item(user_id, f"pack_{pid}", 1)
+            _mark_bought(user_id, f"pack_{pid}")
+        player.set_cd(user_id, "market", CD_MARKET)
+    return True, f"🛒 {pk['emoji']} {pk['name']} خریدی — «بازکردن {pk['name']}»"
+
+
+def _mark_bought(user_id: int, slot: str):
+    db.db().ex("""INSERT INTO shop_buys(user_id, day, slot, qty) VALUES(?,?,?,1)
+                  ON CONFLICT(user_id, day, slot) DO UPDATE SET qty=qty+1""",
+               (user_id, _day(), slot))
 
 
 def _slot_line(user_id: int, slot: str) -> str:
@@ -78,14 +107,21 @@ def _slot_name(slot: str) -> str:
 
 
 def buy(user_id: int, slot_ref: str) -> tuple:
-    # resolve: نام پک یا نام اسلات
+    import fuzzy as fz
+    # ۱) پک‌ها: همیشه موجود، خرید با فودکوین
+    pcat = {k: v["name"] for k, v in PACKS.items() if v.get("fc_price")}
+    pid = fz.resolve(slot_ref, pcat)
+    if pid:
+        return _buy_pack_fc(user_id, pid)
+    # ۲) اسلات‌های چرخشی
     slot = None
     for s in set(daily_slots() + weekly_slots()):
         if slot_ref == s or slot_ref in _slot_name(s) or (s in PACKS and slot_ref in PACKS[s]["name"]):
             slot = s
             break
     if not slot:
-        return False, "🛒 این کالا الان در فروشگاه نیست. «فروشگاه»"
+        return False, ("🛒 این کالا الان در فروشگاه نیست. «فروشگاه»\n"
+                       "📦 پک‌ها همیشه هستند: «خریدن پک تازه‌کار»")
     m = SHOP_POOL[slot]
     p = player.get(user_id)
     if _user_bought(user_id, slot) >= m["limit"]:

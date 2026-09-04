@@ -237,7 +237,8 @@ async def cmd_upgrade(m: Message, ref: str):
     p = _guard(m)
     if not p:
         return
-    bid = next((k for k, v in BUILDINGS.items() if ref in (k, v["name"])), None)
+    import fuzzy as fz
+    bid = fz.resolve(ref, {k: v["name"] for k, v in BUILDINGS.items()}, fz.BUILDING_ALIAS)
     if not bid:
         await _send(m, "🏠 " + " | ".join(f"{v['emoji']} {v['name']}" for v in BUILDINGS.values()))
         return
@@ -280,7 +281,9 @@ async def cmd_recruit(m: Message, ref: str, count: str):
     p = _guard(m)
     if not p:
         return
-    uid = next((k for k, u in UNITS.items() if ref in (k, u["name"], u["en"]) and u.get("cost")), None)
+    import fuzzy as fz
+    uid = fz.resolve(ref, {k: u["name"] for k, u in UNITS.items() if u.get("cost")},
+                     fz.UNIT_ALIAS)
     if not uid:
         await _send(m, "🪖 " + " | ".join(f"{u['emoji']} {u['name']}" for u in UNITS.values() if u.get("cost")))
         return
@@ -471,7 +474,8 @@ async def cmd_packs(m: Message):
 
 async def cmd_open_pack(m: Message, ref: str):
     _reg(m)
-    pid = next((k for k, pk in PACKS.items() if ref in (k, pk["name"], pk["en"])), None)
+    import fuzzy as fz
+    pid = fz.resolve(ref, {k: pk["name"] for k, pk in PACKS.items()})
     if not pid:
         await _send(m, "📦 «بازکردن [نام پک]»")
         return
@@ -529,7 +533,10 @@ async def cmd_order(m: Message, ref: str):
     if m.chat.type != "private":
         await _send(m, "🛍 سفارش‌ها فقط در پیوی من: @FoodverseWarsBot")
         return
-        await _send(m, payments.create_order(m.from_user.id, ref)[1])
+    if not ref:
+        await _send(m, "🛍 «سفارش [نام محصول]» — فهرست: «خرید»")
+        return
+    await _send(m, payments.create_order(m.from_user.id, ref)[1])
 
 
 async def cmd_cancel_order(m: Message):
@@ -543,18 +550,22 @@ async def cmd_receipt_text(m: Message, tracking: str):
                   f"{tracking or '[شماره پیگیری]'}»")
 
 
+_DIG = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+
+
 async def on_photo(m: Message):
-    """رسید پرداخت: عکس + کپشن «رسید [شماره]»."""
+    """رسید پرداخت: عکس + کپشن «رسید [شماره]» — بدون هیچ پیشوندی."""
     if m.chat.type != "private" or not m.photo or not m.caption:
         return
     cap = m.caption.strip()
-    if not cap.lower().startswith("fw"):
-        return
     parts = cap.split()
-    if len(parts) < 3 or parts[1] != "رسید":
+    if not parts or parts[0].lstrip("/").strip() != "رسید":
+        return
+    if len(parts) < 2:
+        await m.reply("🧾 کپشن این‌طور باشد: رسید 12345678")
         return
     perf.STATS.commands += 1
-    tracking = parts[2]
+    tracking = parts[1].translate(_DIG)
     _reg(m)
     fid = m.photo[-1].file_id
     data = await m.bot.download(fid)
@@ -836,6 +847,7 @@ async def on_callback(c: CallbackQuery):
         "store": lambda: payments.products_text(),
         "cosmetic": lambda: cosmetics.equip_text(uid),
         "hub": lambda: "🧭 <b>هاب فرماندهی</b>",
+        "back": lambda: "🧭 <b>هاب فرماندهی</b>",
     }
     if action == "card":
         await c.answer()
@@ -848,7 +860,7 @@ async def on_callback(c: CallbackQuery):
         return
     if action in texts_map:
         txt = texts_map[action]()
-        kb = ui.hub_kb(uid) if action == "hub" else (
+        kb = ui.hub_kb(uid) if action in ("hub", "back") else (
             ui.sub_kb(uid, [("🌍 جهانی", "topg")]) if action == "top" else ui.sub_kb(uid, []))
         try:
             await c.message.edit_text(txt, reply_markup=kb)

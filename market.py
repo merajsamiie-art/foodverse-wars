@@ -199,8 +199,9 @@ def price_history(chat_id: int, item_ref: str) -> str:
 
 
 def _resolve_item(ref: str):
+    import fuzzy as fz
     ref = (ref or "").strip()
     for iid, it in ITEMS.items():
         if ref == iid or ref == it["name"] or ref == f"{it['emoji']} {it['name']}":
             return iid
-    return None
+    return fz.resolve(ref, {k: v["name"] for k, v in ITEMS.items()}, fz.ITEM_ALIAS)

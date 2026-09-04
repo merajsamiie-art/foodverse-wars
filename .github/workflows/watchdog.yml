@@ -1,0 +1,31 @@
+name: Watchdog — نگهبان فوودورس
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # هر ۱۵ دقیقه سلامت ربات را چک می‌کند
+  workflow_dispatch:
+
+concurrency:
+  group: fw-watchdog
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: نصب پایتون
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: چک سلامت ربات + اعلام در کانال و گروه
+        run: python watchdog.py
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}

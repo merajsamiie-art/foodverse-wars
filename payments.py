@@ -21,11 +21,11 @@ def products_text() -> str:
                 if "chests" in fp else "")
         lines.append(f"{fp['emoji']} {fp['name']}: {fp['fc']:,} فودکوین{note}\n"
                      f"   💰 {fp['price_toman']:,} تومان")
-    lines.append("\n📦 <b>پک‌ها</b> (شانس‌ها شفاف: «شانس [نام]»):")
+    lines.append("\n📦 <b>پک‌ها با فودکوین</b> — بازی کن و بخر: «خریدن [نام پک]»")
     for pid, pk in PACKS.items():
-        if pk["price_toman"] > 0:
-            lines.append(f"{pk['emoji']} {pk['name']}\n{pk['en']}\n   💰 {pk['price_toman']:,} تومان")
-    lines.append("\n💎 <b>پاس جنگ</b>:")
+        if pk.get("fc_price"):
+            lines.append(f"{pk['emoji']} {pk['name']} — 🪙 {pk['fc_price']:,} فودکوین")
+    lines.append("\n💎 <b>پاس نبرد</b> (پول واقعی فقط همین‌جاست):")
     for pt, ps in PASSES.items():
         lines.append(f"{ps['emoji']} {ps['name']} ({ps['days']} روز)\n{ps['en']}\n   💰 {ps['price_toman']:,} تومان")
     lines.append("\nℹ️ پرداخت: کارت‌به‌کارت + تأیید دستی مدیر (امن و بدون ربات)"
@@ -50,7 +50,8 @@ def create_order(user_id: int, product_ref: str) -> tuple:
         return False, "🛍 محصول نامعتبر. «خرید»"
     price = _price_of(product)
     if price <= 0:
-        return False, "🛍 این محصول فروشی نیست."
+        return False, ("📦 پک‌ها فقط با فودکوین فروخته می‌شوند: «خریدن پک تازه‌کار»\n"
+                       "💰 پول واقعی فقط برای فودکوین («خرید») و پاس نبرد است.")
     # سفارش باز قبلی؟
     open_o = db.db().one("""SELECT order_id FROM orders WHERE user_id=? AND
                             status IN ('pending_payment','pending_review')""", (user_id,))

@@ -43,6 +43,15 @@ def pass_text(user_id: int) -> str:
         lines.append("🎖 پاس فعالی نداری (مسیر رایگان همیشه باز است!)")
     lines.append(f"⭐ تجربه‌ی پاس: {perf.fmt(s['xp'])} | پله: {s['tier']}/{PASS_TIERS} "
                  f"(هر پله {PASS_XP_PER_TIER} تجربه)")
+    # 📊 نوار پیشرفت تا پله‌ی بعد
+    if s["tier"] >= PASS_TIERS:
+        lines.append("📊 " + "🟩" * 10 + " کامل!")
+    else:
+        cur = s["xp"] - s["tier"] * PASS_XP_PER_TIER
+        filled = int(cur / PASS_XP_PER_TIER * 10)
+        need = PASS_XP_PER_TIER - cur
+        lines.append(f"📊 {'🟩' * filled}{'⬜' * (10 - filled)} "
+                     f"{perf.fmt(need)} تجربه تا پله‌ی بعد")
     lines.append("")
     from registry import pass_reward_text
     for t in (1, 5, 10, 15, PASS_TIERS):

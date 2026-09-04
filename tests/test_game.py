@@ -339,27 +339,30 @@ def test_pass_premium_needs_pass():
 # ─── Payments ───
 def test_order_flow_full():
     mk("خریدار", 4040)
-    ok, msg = payments.create_order(4040, "starter_pack")
+    ok, msg = payments.create_order(4040, "پاس هفتگی")
     assert ok and "FW-" in msg
     oid = P.one("SELECT order_id FROM orders WHERE user_id=?", (4040,))["order_id"]
     ok, res = payments.submit_receipt(4040, "111111", "hashAAA")
     assert ok and res["order_id"] == oid
+    # پک با پول واقعی ممنوع شد — راهنمای فودکوین
+    ok, msg = payments.create_order(4040, "پک تازه‌کار")
+    assert not ok and "فودکوین" in msg
     mk("دیگری", 4041)
-    payments.create_order(4041, "starter_pack")
+    payments.create_order(4041, "پاس هفتگی")
     ok, res = payments.submit_receipt(4041, "111111", "hashBBB")   # پیگیری تکراری
     assert not ok
     ok, res = payments.submit_receipt(4041, "222222", "hashAAA")   # هش تکراری
     assert not ok
     ok, o, msg = payments.decide(oid, 8694290031, True)
-    assert ok and "تأیید" in msg
+    assert ok and "فعال شد" in msg
     ok2, o2, msg2 = payments.decide(oid, 8694290031, True)
     assert not ok2   # دوباره‌محصول ممنوع
-    assert player.inv(4040).get("pack_starter_pack") == 1
+    assert (P.one("SELECT pass_until FROM accounts WHERE user_id=?", (4040,))["pass_until"] or 0) > 0
 
 
 def test_order_reject():
     mk("ردشده", 4042)
-    ok, _ = payments.create_order(4042, "epic_pack")
+    ok, _ = payments.create_order(4042, "پاس ماهانه")
     assert ok
     oid = P.one("SELECT order_id FROM orders WHERE user_id=? AND status='pending_payment'",
                 (4042,))["order_id"]
@@ -371,14 +374,14 @@ def test_order_reject():
 
 def test_order_expire():
     mk("دیرکرد", 4043)
-    payments.create_order(4043, "starter_pack")
+    payments.create_order(4043, "پاس هفتگی")
     # 🛟 دیرکرد کمتر از ۲۴ ساعت: رسید قبول می‌شود — پول کسی نمی‌سوزد
     P.ex("UPDATE orders SET expires_at=? WHERE user_id=?", (time.time() - 3600, 4043))
     ok, res = payments.submit_receipt(4043, "444444", "hashDDD")
     assert ok
     # دیرکرد بیش از ۲۴ ساعت: رد قطعی
     mk("خیلی دیر", 4044)
-    payments.create_order(4044, "starter_pack")
+    payments.create_order(4044, "پاس هفتگی")
     P.ex("UPDATE orders SET expires_at=? WHERE user_id=?", (time.time() - 25 * 3600, 4044))
     ok, res = payments.submit_receipt(4044, "444445", "hashDDE")
     assert not ok and "منقضی" in res
@@ -778,8 +781,8 @@ def test_referral_milestones_and_cap():
     fc = P.one("SELECT fc FROM accounts WHERE user_id=?", (6101,))["fc"]
     assert fc - fc0 == 5 * config.REF_BASE_FC + config.REF_MILESTONES[5]
     fc1 = P.one("SELECT fc FROM accounts WHERE user_id=?", (6101,))["fc"]
-    for i in range(10):
-        uid = 6130 + i
+    for j in range(10):
+        uid = 6130 + j
         player.register(uid, f"موج{i}")
         refer.bind(uid, "ref-6101")
         refer.on_daily(uid)
@@ -846,3 +849,34 @@ def test_channel_gate_unit():
         gate.invalidate(1)
         assert await gate.is_member(FakeBot("left"), 1) is False
     asyncio.run(run())
+
+
+def test_pack_buy_with_foodcoin():
+    mk("خریدار فودکوینی", 6301)
+    # پک تازه‌کار با فودکوین — تشخیص فازی
+    ok, msg = shop.buy(6301, "پک تازه کار")
+    assert ok
+    assert player.inv(6301).get("pack_starter_pack") == 1
+    assert P.one("SELECT fc FROM accounts WHERE user_id=?", (6301,))["fc"] == 100000 - 2500
+    # سفارش پولی پک → رد با راهنما
+    ok, msg = payments.create_order(6301, "پک حماسی")
+    assert not ok and "فودکوین" in msg
+
+
+def test_fuzzy_resolve():
+    import fuzzy, registry
+    u = {k: v["name"] for k, v in registry.UNITS.items() if v.get("cost")}
+    assert fuzzy.resolve("برگر", u, fuzzy.UNIT_ALIAS) == "burger"
+    assert fuzzy.resolve("سرباز بریگر", u, fuzzy.UNIT_ALIAS) == "burger"   # غلط املایی
+    assert fuzzy.resolve("سیب زمینی", u, fuzzy.UNIT_ALIAS) == "fries"
+    b = {k: v["name"] for k, v in registry.BUILDINGS.items()}
+    assert fuzzy.resolve("دیوار", b, fuzzy.BUILDING_ALIAS) == "defense"
+    assert market._resolve_item("موشک") == "sauce_rocket"
+    assert market._resolve_item("بمب پنیری") == "cheese_bomb"
+
+
+def test_watchdog_logic():
+    # فقط سینتکس/تابع‌ها؛ بدون شبکه
+    import watchdog
+    assert watchdog.GRACE_S == 20 * 60
+    assert "خاموش" in watchdog.DOWN_TEXT
