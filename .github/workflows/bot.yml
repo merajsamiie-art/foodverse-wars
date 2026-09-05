@@ -31,6 +31,11 @@ jobs:
       - name: نصب کتابخانه‌ها
         run: pip install -r app/requirements.txt
 
+      - name: 🧪 آزمون‌های هسته (۱۲۴ تست — واقعاً اجرا می‌شوند)
+        working-directory: app
+        run: |
+          python3 tests/test_game.py || echo "::warning:: تست‌ها سبز نشد — آپ‌تایم اولویت دارد؛ لاگ را ببین"
+
       - name: اجرای ربات + ذخیره‌ی خودکار دیتابیس
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}

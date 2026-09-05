@@ -68,7 +68,8 @@ async def main():
     media.ensure_table()
     eng = events.EventEngine(bot, interval=900)
     eng.start()
-    log.info("🍔 FOODVERSE WARS ONLINE")
+    import announce
+    log.info(f"🍔 FOODVERSE WARS v{announce.VERSION} ONLINE")
     asyncio.get_running_loop().create_task(cleanup_loop(bot))   # 🧹 نظافتچی هر ۴۰ ثانیه
     try:
         await poll_forever(bot, dp)
@@ -93,8 +94,8 @@ async def cleanup_loop(bot):
         await asyncio.sleep(CLEANUP_EVERY)
         try:
             # 🧹 txlog: فقط ۱۴ روز نگه می‌داریم (جلوگیری از رشد بی‌نهایت)
-            db.db().ex("DELETE FROM txlog WHERE at < ? AND id % 97 = 0",
-                       (db.now() - 14 * 86400,))
+            db.db().ex("DELETE FROM txlog WHERE id IN (SELECT id FROM txlog WHERE at < ? LIMIT 500)",
+                       (db.now() - 14 * 86400,))   # دسته‌ای — بدون قفلِ طولانی
             rows = db.db().q(
                 "SELECT chat_id, message_id FROM bot_msgs WHERE at < ? LIMIT 100",
                 (db.now() - BOT_MSG_TTL,))

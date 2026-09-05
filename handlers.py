@@ -10,6 +10,8 @@ from aiogram.types import CallbackQuery, Message
 
 import admin
 import alliance
+import announce
+import emoji as em
 import army
 import base
 import boss
@@ -47,6 +49,8 @@ HINTS = {
     "پایگاه": "کارخانه فودکوینت را ارتقا بده — «ارتقا کارخانه»",
     "ارتقا": "سطح بالاتر = تولید بیشتر",
     "سرباز": "حداقل ۳ سرباز برای باس لازم است",
+    "جوخه": "۱۰ سرباز از چند شخصیت با یک کلیک — بدون تایپ",
+    "ارتش": "دکمه‌ی «خرید ×۱۰» = هر شخصیت ده‌تا ده‌تا",
     "جنگ": "برنده منابع می‌قاپد؛ باخته محافظت می‌گیرد",
     "غارت": "هدف: بازیکن ضعیف‌تر از خودت، بی‌سپر",
     "باس": "آسیب‌برتر اول جایزه‌ی بیشتر می‌برد",
@@ -92,7 +96,14 @@ async def _send(m: Message, text: str, feed=False, kb=None):
             m._fw_hinted = True
         except Exception:
             pass
-    r = await m.answer(text, reply_markup=kb)
+    try:
+        r = await m.answer(text, reply_markup=kb)
+    except Exception as e:
+        err = str(e).upper()
+        if em.has_premium(text) and ("ENTIT" in err or "CUSTOM_EMOJI" in err or "PREMIUM" in err):
+            r = await m.answer(em.strip(text), reply_markup=kb)   # ✨ fallback: ایموجی ساده
+        else:
+            raise
     if feed:
         _feed[cid] = (r.message_id, _time.time())
     return r
@@ -980,6 +991,30 @@ async def cmd_admin(m: Message, rest: str):
             await _send(m, "👑 اسپاون نشد (شرایط).")
     elif sub == "آمار":
         await _send(m, admin.stats_text())
+    elif sub == "ایموجی":                                   # ✨ ایموجی پریمیوم
+        bits = arg.split()
+        if not bits:
+            await _send(m, em.status_text())
+        elif bits[0] in ("روشن", "on"):
+            em.set_enabled(True); await _send(m, "✨ ایموجی پریمیوم روشن شد.")
+        elif bits[0] in ("خاموش", "off"):
+            em.set_enabled(False); await _send(m, "✨ ایموجی پریمیوم خاموش شد — همه ایموجی ساده می‌بینند.")
+        elif bits[0] == "حذف" and len(bits) > 1:
+            await _send(m, "🗑 حذف شد." if em.unregister(bits[1]) else "❓ چنین کلیدی نیست.")
+        elif m.reply_to_message:
+            found = em.from_message(m.reply_to_message)
+            if not found:
+                await _send(m, "❌ در پیامِ ریپلای‌شده ایموجی پریمیومی نیست (باید custom_emoji باشد).")
+            else:
+                cid_, fb = found[0]
+                em.register(bits[0], cid_, fb)
+                await _send(m, f"✅ <code>{bits[0]}</code> → {fb} ثبت شد. پیش‌نمایش: {em.E(bits[0])}")
+        else:
+            await _send(m, "✨ روی پیامی که ایموجی پریمیوم دارد ریپلای کن: «مدیر ایموجی [کلید]»")
+    elif sub == "اعلان":                                    # 📣 پست آپدیت در کانال
+        which = arg.strip() or "latest"
+        ok, info = await announce.post_update(m.bot, which)
+        await _send(m, info)
     elif sub == "تصویر" and m.reply_to_message and m.reply_to_message.photo:
         key = arg.strip().replace(" ", "_")
         if not key:
@@ -1071,6 +1106,49 @@ async def cmd_admin(m: Message, rest: str):
 
 
 # ═══════════ Callback: منوها ═══════════
+def hub_text(uid: int) -> str:
+    p_ = player.get(uid)
+    return (f"🍔 <b>منوی فوودورس</b>\n"
+            f"🪙 <b>{(p_['fc'] or 0):,.0f}</b> فودکوین · 🪖 قدرت <b>{perf.fmt(army.army_power(uid))}</b> · "
+            f"⭐️ سطح {p_['level']}\n"
+            f"<i>هر بخش یک دکمه — بدون تایپ.</i>")
+
+
+def army_shop_text(uid: int, qty: int = 10) -> str:
+    p_ = player.get(uid)
+    from army import unit_price, max_affordable, BULK_MAX
+    fc = p_["fc"] or 0
+    qlabel = {1: "۱ عدد", 10: "۱۰ عدد", 50: "۵۰ عدد", 0: f"حداکثرِ ممکن (تا {BULK_MAX})"}.get(qty, "۱۰ عدد")
+    lines = ["🛒 <b>فروشگاه ارتش — خرید گروهی</b>",
+             f"🪙 موجودی: <b>{fc:,.0f}</b> فودکوین · تعداد هر کلیک: <b>{qlabel}</b>", "",
+             "شخصیت‌ها را ده‌تا ده‌تا بخر — روی هر دکمه قیمتِ همان تعداد نوشته شده:"]
+    from registry import RARITY
+    for k_, un in UNITS.items():
+        if not un.get("cost"):
+            continue
+        dot = RARITY.get(un.get("rarity", "common"), ("⚪", ""))[0]
+        can = max_affordable(uid, k_)
+        lines.append(f"{dot} {un['emoji']} <b>{un['name']}</b> — {unit_price(k_):,}🪙/عدد · "
+                     f"❤️{un['hp']} ⚔️{un['atk']} 🛡{un['df']} · می‌توانی {can} تا بخری")
+    lines += ["", "🎖 عجله داری؟ «جوخه‌های ۱۰تایی» = ترکیبِ سنجیده با یک کلیک",
+              "💡 پول کم؟ 🥛 شیر هر ۱۰ دقیقه · 🏭 شیفت هر ۳ ساعت"]
+    return "\n".join(lines)
+
+
+def squads_text(uid: int) -> str:
+    p_ = player.get(uid)
+    from army import SQUADS, squad_price
+    lines = ["🎖 <b>جوخه‌های آماده — ۱۰ سرباز با یک کلیک</b>",
+             f"🪙 موجودی: <b>{(p_['fc'] or 0):,.0f}</b> فودکوین", ""]
+    for sid, sq in SQUADS.items():
+        price = squad_price(sid)
+        can = "✅" if (p_["fc"] or 0) >= price else "🔒"
+        parts = " · ".join(f"{UNITS[u]['emoji']}×{k}" for u, k in sq["mix"].items())
+        lines.append(f"{can} {sq['emoji']} <b>{sq['name']}</b> — {price:,}🪙\n   {parts}\n   <i>{sq['desc']}</i>")
+    lines += ["", "⚖️ مثلث برتری: 🍔 فست‌فود ⟶ 🍭 شیرینی ⟶ 🥦 سبزیجات ⟶ 🍔"]
+    return "\n".join(lines)
+
+
 async def on_callback(c: CallbackQuery):
     perf.STATS.callbacks += 1
     data = c.data or ""
@@ -1142,8 +1220,9 @@ async def on_callback(c: CallbackQuery):
         "prices": lambda: market.prices_text(),
         "hint": lambda: hint_text(uid, chat_id),
         "ledger": lambda: ledger_text(uid),
-        "hub": lambda: "🍔 <b>منوی فوودورس</b>",
-        "back": lambda: "🍔 <b>منوی فوودورس</b>",
+        "hub": lambda: hub_text(uid),
+        "back": lambda: hub_text(uid),
+        "squads": lambda: squads_text(uid),
     }
     from help_pages import HELP_PAGES as _HP
     for _i in range(len(_HP)):
@@ -1169,6 +1248,12 @@ async def on_callback(c: CallbackQuery):
             return ui.infected_kb(uid)
         if a == "army":
             return ui.army_view_kb(uid)
+        if a == "armyshop":
+            return ui.army_shop_kb(uid, _qty_of(arg))
+        if a == "squads":
+            return ui.squads_kb(uid)
+        if a in ("hub", "back"):
+            return ui.menu_kb(uid)
         if a == "market":
             rows = db.db().q("""SELECT l.id, l.price FROM listings l
                                 WHERE l.chat_id=? AND l.active=1
@@ -1179,19 +1264,14 @@ async def on_callback(c: CallbackQuery):
             return ui.quick_kb(uid)
         return None
 
-    def _army_shop_text(uid_):
-        p_ = player.get(uid_)
-        from registry import UNITS
-        from army import unit_price
-        lines = ["🛒 <b>فروشگاه ارتش — خرید با فودکوین</b>",
-                 f"🪙 موجودی تو: <b>{(p_['fc'] or 0):,.0f} فودکوین</b>", "",
-                 "هر دکمه = خرید ۱ سرباز — بدون تایپ!"]
-        for k_, un in UNITS.items():
-            if un.get("cost"):
-                lines.append(f"{un['emoji']} {un['name']} — {unit_price(k_):,} 🪙")
-        lines += ["", "💡 پول کم؟ «فودکوین» بگو — شیر رایگان هر ۱۰ دقیقه"]
-        return "\n".join(lines)
-    texts_map["armyshop"] = lambda: _army_shop_text(uid)
+    def _qty_of(a_: str) -> int:
+        from army import QTY_OPTIONS
+        try:
+            q_ = int(a_)
+        except (TypeError, ValueError):
+            q_ = 10
+        return q_ if q_ in QTY_OPTIONS else 10
+    texts_map["armyshop"] = lambda: army_shop_text(uid, _qty_of(arg))
     if action == "card":
         await c.answer()
         try:
@@ -1308,12 +1388,36 @@ async def on_callback(c: CallbackQuery):
         await c.answer(msg.split("\n")[0], show_alert=not ok)
         await _refresh("shop")
         return
-    if action == "buy":
-        unit_id = arg
-        ok, msg = army.buy_fc(uid, unit_id, 1)
-        await c.answer(msg.split("\n")[0], show_alert=not ok)
+    if action == "buy":                     # 🛒 خرید تکی/۱۰تایی/۵۰تایی/حداکثر
+        unit_id, _, q_s = arg.partition(":")
+        qty = _qty_of(q_s) if q_s else 1
+        ok, msg = army.buy_fc(uid, unit_id, qty)
+        if ok:
+            msg += player.advance_guide(uid, "recruit")
+        await c.answer(em.strip(msg.split("\n")[0]), show_alert=not ok)
+        if ok:
+            try:
+                await c.message.answer(msg)
+            except Exception:
+                pass
         try:
-            await c.message.edit_text(texts_map["armyshop"](), reply_markup=ui.army_shop_kb(uid))
+            await c.message.edit_text(army_shop_text(uid, qty if qty else 0),
+                                      reply_markup=ui.army_shop_kb(uid, qty))
+        except Exception:
+            pass
+        return
+    if action == "squad":                   # 🎖 جوخه‌ی آماده‌ی ۱۰تایی
+        ok, msg = army.buy_squad(uid, arg)
+        if ok:
+            msg += player.advance_guide(uid, "recruit")
+        await c.answer(em.strip(msg.split("\n")[0]), show_alert=not ok)
+        if ok:
+            try:
+                await c.message.answer(msg)
+            except Exception:
+                pass
+        try:
+            await c.message.edit_text(squads_text(uid), reply_markup=ui.squads_kb(uid))
         except Exception:
             pass
         return
@@ -1402,7 +1506,7 @@ async def cmd_help(m: Message):
 CMD_WORDS = frozenset((
     "شروع", "منو", "من", "کارت", "روزانه", "رفرال", "دعوت", "پایگاه", "ارتقا", "مستعمره", "غارت",
     "ارتش", "جذب", "جنگ", "باس", "شیفت", "گشت", "اینفکت", "اینفکتد", "هجوم",
-    "شخصیت", "ساخت", "تفریخ", "انبار", "تجهیز", "پک", "بازکردن", "شانس",
+    "جوخه", "شخصیت", "ساخت", "تفریخ", "انبار", "تجهیز", "پک", "بازکردن", "شانس",
     "فروشگاه", "خریدن", "خرید", "فروش", "بفروش", "برداشتن", "قیمت", "قیمت‌ها",
     "معامله", "گذاشتن", "درآوردن", "تایید", "فودکوین", "fc",
     "پیشنهاد", "نصیحت", "چیکارکنم", "درود", "دفتر", "وان‌شات", "انتقال",
@@ -1419,7 +1523,7 @@ GROUP_CMDS = ("شروع", "منو", "من", "پایگاه", "ارتقا", "مس�
               "جنگ", "باس", "ساخت", "انبار", "تجهیز", "بازار", "فروشگاه", "بفروش",
               "برداشتن", "قیمت", "اتحاد", "تأسیس", "عضویت", "ترک", "کمک", "خیانت",
               "رتبه", "شخصیت", "بازکردن", "مدیر", "اینفکت", "اینفکتد", "هجوم",
-              "شیفت", "گشت")
+              "شیفت", "گشت", "جوخه")
 
 
 # 📢 دستورهایی که بدون عضویت در کانال هم جواب می‌گیرند
@@ -1440,7 +1544,7 @@ SOLO_CMDS = frozenset((
     "انبار", "باس", "اینفکت", "اینفکتد", "جنگ", "غارت", "مستعمره", "اتحاد",
     "بازار", "رتبه", "رفرال", "دعوت", "آموزش", "راهنما", "پاس", "پک",
     "فروشگاه", "گشت", "شیفت", "پیشنهاد", "نصیحت", "چیکارکنم", "درود",
-    "وان‌شات", "ترک", "خیانت", "هجوم", "تجهیز",
+    "وان‌شات", "ترک", "خیانت", "هجوم", "تجهیز", "جوخه",
 ))
 SPAM_STRIKES = 8          # ⚠️ ۸ برخورد با گیت در ۶۰ ثانیه = اسپمر
 SPAM_SILENCE_S = 180      # 🤐 سکوت موقت ۳ دقیقه
@@ -1635,6 +1739,10 @@ async def on_text(m: Message):
         await cmd_raid(m)
     elif cmd == "ارتش":
         await cmd_army(m)
+    elif cmd == "جوخه":
+        p_ = _guard(m)
+        if p_:
+            await _send(m, squads_text(m.from_user.id), kb=ui.squads_kb(m.from_user.id))
     elif cmd == "جذب":
         await cmd_recruit(m, a, b2)
     elif cmd == "جنگ":

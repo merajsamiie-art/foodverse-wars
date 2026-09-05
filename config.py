@@ -4,7 +4,7 @@ import os
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_IDS = [int(x) for x in os.environ.get("ADMIN_IDS", "0").split(",") if x.strip().isdigit()]
 KING_UID = 8694290031        # 👑 پادشاه فوودورس — مالک: حمله‌ناپذیر، منابع بی‌پایان
-CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "0") or 0)
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1003946888531") or 0)   # کانال رسمی @FoodverseWars
 
 # 💳 پرداخت — از Environment/Secrets می‌آید، هرگز در سورس نیست
 PAYMENT_CARD = os.environ.get("PAYMENT_CARD", "")
@@ -86,7 +86,6 @@ PRICE_MAX_MULT = 2.0               # سقف قیمت: ۲۰۰٪ پایه
 PRICE_STEP = 0.01                  # هر معامله ۱٪ فشار
 PRICE_DECAY_H = 0.05               # بازگشت ۵٪ در ساعت به سمت پایه
 NPC_SELL_RATIO = 0.85              # NPC ۸۵٪ قیمت می‌دهد (کارمزد)
-BUY_LIMIT = 500                    # سقف هر معامله NPC
 BUY_LIMIT = 500                    # سقف خرید NPC در هر دستور (ضد دستکاری)
 
 # ─── پک ───

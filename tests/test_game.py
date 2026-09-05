@@ -1493,9 +1493,9 @@ def test_menus_distinct():
     # 🍔 فقط یک منو — گروه و پیوی دقیقاً همان یک چیز را می‌بینند
     hub = [b.text for row in ui.hub_kb(1).inline_keyboard for b in row]
     menu = [b.text for row in ui.menu_kb(1).inline_keyboard for b in row]
-    assert hub == menu and "🍔 منوی فوودورس" in menu
+    assert hub == menu and any("خرید ارتش" in t for t in menu) and any("جوخه" in t for t in menu)
     # همه‌چیز در همان یک منو: بازی + شخصی
-    assert "👑 باس" in menu and "🔄 بازار" in menu and "📦 پک‌های من" in menu
+    assert "👑 باس" in menu and "🔄 بازار" in menu and "📦 پک‌ها" in menu
     assert "💎 بتل‌پس" in menu and "🎨 ظاهر" in menu and "🛒 فروشگاه" in menu
 
 
@@ -1544,8 +1544,10 @@ def test_army_shop_fc():
     import ui
     kb = ui.army_shop_kb(7001)
     btns = [b for row in kb.inline_keyboard for b in row]
-    assert any(b.callback_data.endswith("buy:burger") for b in btns)
-    assert any("100" in b.text for b in btns)
+    assert any(":buy:burger:" in b.callback_data for b in btns)
+    assert any("1,000" in b.text for b in btns)          # ×۱۰ پیش‌فرض → ۱۰×۱۰۰
+    assert any("100" in b.text and "1,000" not in b.text
+               for row in ui.army_shop_kb(7001, 1).inline_keyboard for b in row)
     # منو: دکمه‌ی خرید ارتش هست
     menu = [b.text for row in ui.menu_kb(7001).inline_keyboard for b in row]
     assert any("خرید ارتش" in t for t in menu)
@@ -1590,7 +1592,7 @@ def test_button_ui_all():
     assert kb.inline_keyboard[0][0].callback_data.endswith("mkt:41")
     # ارتش: لینک فروشگاه
     acts = [b.callback_data.split(":", 2)[2] for row in ui.army_view_kb(1).inline_keyboard for b in row]
-    assert "armyshop" in acts
+    assert "armyshop:10" in acts and "squads" in acts
 
 
 def test_button_bugfix_buy_split():
@@ -1729,7 +1731,7 @@ def test_scale_1m_indexes():
     assert not missing, f"index گمشده: {missing}"
     # cleanup txlog در run.py هست (جلوگیری از رشد بی‌نهایت)
     src = open("run.py", encoding="utf-8").read()
-    assert "DELETE FROM txlog WHERE at <" in src
+    assert "DELETE FROM txlog WHERE id IN (SELECT id FROM txlog WHERE at <" in src   # پاکسازی واقعیِ دسته‌ای
     assert "LIMIT 100" in src   # batch بزرگ‌تر برای ترافیک بالا
 
 
@@ -1853,3 +1855,196 @@ def test_harder_infected_and_streak():
     src = open("infected.py", encoding="utf-8").read()
     assert "army_power(target_uid) > _army.army_power(attacker_uid) * 1.5" in src
     assert "هجوم شکست خورد" in src
+
+
+
+# ─── 🪖 فاز ۱۸: خرید گروهی، جوخه‌ها، ایموجی پریمیوم، اعلان ───
+def test_bulk_buy_and_max():
+    mk("انبوه", 7301)
+    player.update(7301, fc=100 * 10 + 50)
+    ok, msg = army.buy_fc(7301, "burger", 10)
+    assert ok and "×10" in msg and "گروهی" in msg
+    assert player.get(7301)["fc"] == 50
+    # حداکثر با پول کم → خطا با راهنمایی
+    ok, msg = army.buy_fc(7301, "burger", 0)
+    assert not ok
+    player.update(7301, fc=100 * 250)
+    ok, msg = army.buy_fc(7301, "burger", 0)          # حداکثر = سقف ۱۰۰
+    assert ok and "×100" in msg
+    assert army.army_of(7301)["burger"] == 110
+    # سقف ۱۰۰ حتی اگر ۹۹۹ بخواهد
+    player.update(7301, fc=10 ** 7)
+    ok, msg = army.buy_fc(7301, "fries", 999)
+    assert ok and "×100" in msg
+
+
+def test_squads():
+    mk("جوخه‌دار", 7302)
+    from army import SQUADS, squad_price, buy_squad
+    assert all(sum(sq["mix"].values()) == 10 for sq in SQUADS.values())
+    assert all(u in UNITS and UNITS[u].get("cost") for sq in SQUADS.values() for u in sq["mix"])
+    price = squad_price("balanced")
+    assert price == 4 * 100 + 3 * 150 + 3 * 150
+    player.update(7302, fc=price - 1)
+    ok, msg = buy_squad(7302, "balanced")
+    assert not ok
+    player.update(7302, fc=price)
+    ok, msg = buy_squad(7302, "balanced")
+    assert ok and army.army_size(7302) == 10 and player.get(7302)["fc"] == 0
+    ok, msg = buy_squad(7302, "nope")
+    assert not ok
+
+
+def test_army_shop_kb_qty():
+    import ui
+    mk("کیبورد", 7303)
+    for q in (1, 10, 50, 0):
+        kb = ui.army_shop_kb(7303, q)
+        btns = [b for row in kb.inline_keyboard for b in row]
+        assert any(b.callback_data.endswith(f"buy:burger:{q}") for b in btns)
+        assert sum(1 for b in btns if b.text.startswith("🔘")) == 1
+    kb = ui.army_shop_kb(7303, 7)                  # تعداد نامعتبر → ۱۰
+    assert any(b.callback_data.endswith("buy:burger:10") for row in kb.inline_keyboard for b in row)
+    sk = ui.squads_kb(7303)
+    assert sum(1 for row in sk.inline_keyboard for b in row if ":squad:" in b.callback_data) == 4
+    menu = [b.callback_data for row in ui.menu_kb(7303).inline_keyboard for b in row]
+    assert any(c.endswith("armyshop:10") for c in menu) and any(c.endswith("squads") for c in menu)
+
+
+def test_army_text_rich():
+    mk("نمایش", 7304)
+    assert "جوخه" in army.army_text(7304)
+    player.update(7304, fc=10000)
+    army.buy_fc(7304, "burger", 10)
+    army.buy_fc(7304, "candy", 10)
+    t = army.army_text(7304)
+    assert "ترکیب" in t and "▰" in t and "50%" in t
+    assert army.bar(0.5, 10) == "▰▰▰▰▰▱▱▱▱▱"
+
+
+def test_premium_emoji_layer():
+    import emoji as em
+    em.reset_cache()
+    em.set_enabled(False)
+    assert em.E("burger") == "🍔"
+    em.register("burger", "5368324170671202286", "🍔")
+    assert em.E("burger") == "🍔"                 # خاموش → ساده
+    em.set_enabled(True)
+    tagged = em.E("burger")
+    assert tagged.startswith('<tg-emoji emoji-id="5368324170671202286">') and em.strip(tagged) == "🍔"
+    assert em.has_premium(tagged) and not em.has_premium("🍔")
+    assert em.unregister("burger") and not em.unregister("burger")
+    em.set_enabled(False)
+    class _E:
+        type = "custom_emoji"; custom_emoji_id = "123"; offset = 0; length = 1
+    class _M:
+        text = "🍔 hi"; caption = None; entities = [_E()]; caption_entities = None
+    assert em.from_message(_M()) == [("123", "🍔")]
+
+
+def test_announce_changelog():
+    import announce
+    assert announce.latest() == announce.VERSION
+    txt = announce.render(announce.VERSION)
+    assert "خرید گروهی" in txt and "@FoodverseWarsBot" in txt
+    assert not announce.was_posted("9.9")
+    announce.mark_posted("9.9", 1)
+    assert announce.was_posted("9.9")
+    assert "✅" in announce.list_text() or "⏳" in announce.list_text()
+
+
+def test_handlers_texts():
+    import handlers as H
+    mk("متن", 7305)
+    assert "منوی فوودورس" in H.hub_text(7305)
+    assert "خرید گروهی" in H.army_shop_text(7305, 10)
+    assert "حداکثر" in H.army_shop_text(7305, 0)
+    assert "جوخه‌های آماده" in H.squads_text(7305)
+    assert "جوخه" in H.CMD_WORDS and "جوخه" in H.SOLO_CMDS
+
+
+# ─── 🧷 شبیه‌سازی کامل on_callback با CallbackQuery ساختگی (بدون شبکه) ───
+def test_callback_flow_bulk_and_squads():
+    import asyncio
+    import handlers as H
+
+    class _User:
+        id = 7306; is_bot = False; full_name = "کلیک‌باز"
+    class _Chat:
+        id = CH; type = "supergroup"
+    class _Msg:
+        chat = _Chat()
+        def __init__(self):
+            self.edits = []; self.sent = []
+        async def edit_text(self, text, reply_markup=None):
+            self.edits.append((text, reply_markup))
+        async def answer(self, text, reply_markup=None):
+            self.sent.append(text)
+    class _CB:
+        def __init__(self, data):
+            self.data = data; self.from_user = _User(); self.message = _Msg()
+            self.answers = []; self.bot = None
+        async def answer(self, text=None, show_alert=False):
+            self.answers.append((text, show_alert))
+
+    mk("کلیک‌باز", 7306)
+    player.update(7306, fc=5000)
+    perf.cd_clear_all()
+
+    async def run():
+        # فروشگاه با ×۱۰
+        cb = _CB("h:7306:armyshop:10"); await H.on_callback(cb)
+        assert cb.message.edits and "خرید گروهی" in cb.message.edits[-1][0]
+        kb = cb.message.edits[-1][1]
+        assert any(b.callback_data.endswith("buy:burger:10") for row in kb.inline_keyboard for b in row)
+        perf.cd_clear_all(); time.sleep(0.35)   # پنجره‌ی ضدفلود دکمه‌ها
+        # خرید ۱۰ برگر
+        cb = _CB("h:7306:buy:burger:10"); await H.on_callback(cb)
+        assert army.army_of(7306).get("burger") == 10, army.army_of(7306)
+        assert player.get(7306)["fc"] == 4000
+        assert cb.message.sent and "×10" in cb.message.sent[-1]
+        perf.cd_clear_all(); time.sleep(0.35)
+        # حداکثر
+        cb = _CB("h:7306:buy:fries:0"); await H.on_callback(cb)
+        assert army.army_of(7306).get("fries") == 26      # 4000 // 150
+        perf.cd_clear_all(); time.sleep(0.35)
+        # جوخه: پول کم → alert
+        cb = _CB("h:7306:squad:elite"); await H.on_callback(cb)
+        assert cb.answers and cb.answers[-1][1] is True
+        player.update(7306, fc=2000); perf.cd_clear_all(); time.sleep(0.35)
+        cb = _CB("h:7306:squad:balanced"); await H.on_callback(cb)
+        assert army.army_size(7306) == 10 + 26 + 10
+        perf.cd_clear_all(); time.sleep(0.35)
+        # صفحه‌ی جوخه‌ها و هاب
+        cb = _CB("h:7306:squads"); await H.on_callback(cb)
+        assert "جوخه‌های آماده" in cb.message.edits[-1][0]
+        perf.cd_clear_all(); time.sleep(0.35)
+        cb = _CB("h:7306:hub"); await H.on_callback(cb)
+        assert "منوی فوودورس" in cb.message.edits[-1][0]
+        # دکمه‌ی دیگری → رد
+        cb = _CB("h:1:buy:burger:10"); await H.on_callback(cb)
+        assert cb.answers and "خودت" in (cb.answers[-1][0] or "")
+    asyncio.run(run())
+
+
+# ─── ▶️ اجرای واقعی همه‌ی تست‌ها به ترتیب تعریف ───
+if __name__ == "__main__":
+    import inspect as _insp
+    import traceback as _tb
+    _tests = [(n, f) for n, f in list(globals().items())
+              if n.startswith("test_") and callable(f)]
+    _tests.sort(key=lambda nf: _insp.getsourcelines(nf[1])[1])
+    _ok = _fail = 0
+    for _n, _f in _tests:
+        try:
+            _f()
+            _ok += 1
+        except Exception:
+            _fail += 1
+            print(f"❌ {_n}")
+            _tb.print_exc()
+    print(f"🧪 {_ok} passed · {_fail} failed · {len(_tests)} total")
+    if _fail:
+        sys.exit(1)
+
+

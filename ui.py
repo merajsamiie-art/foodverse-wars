@@ -16,14 +16,13 @@ def menu_kb(user_id: int) -> InlineKeyboardMarkup:
     """🍔 منوی واحد فوودورس — همه‌چیز در یک منو؛ گروه و پیوی هیچ فرقی ندارد."""
     b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
     return InlineKeyboardMarkup(inline_keyboard=[
-        [b("🍔 منوی فوودورس", "me")],
         [b("👤 پروفایل", "me"), b("🏠 پایگاه", "base"), b("🪖 ارتش", "army")],
+        [b("🛒 خرید ارتش ×۱۰", "armyshop:10"), b("🎖 جوخه‌های آماده", "squads")],
         [b("👑 باس", "boss"), b("🔄 بازار", "market"), b("🏆 رتبه", "top")],
-        [b("🎒 انبار", "inv"), b("📦 پک‌های من", "packs"), b("💎 بتل‌پس", "pass")],
+        [b("🎒 انبار", "inv"), b("📦 پک‌ها", "packs"), b("💎 بتل‌پس", "pass")],
         [b("🛒 فروشگاه", "shop"), b("🎨 ظاهر", "cosmetic"), b("🤝 اتحاد", "ally")],
-        [b("🛒 خرید ارتش (فودکوین)", "armyshop")],
-        [b("🎁 روزانه", "daily"), b("📖 آموزش", "help")],
-        [b("⚡️ شیر", "milk"), b("🏭 شیفت", "shift"), b("🚓 گشت", "patrol")],
+        [b("🥛 شیر", "milk"), b("🏭 شیفت", "shift"), b("🚓 گشت", "patrol")],
+        [b("🎁 روزانه", "daily"), b("📖 آموزش", "help"), b("💡 پیشنهاد", "hint")],
     ])
 
 
@@ -32,22 +31,41 @@ def hub_kb(user_id: int) -> InlineKeyboardMarkup:
     return menu_kb(user_id)
 
 
-def army_shop_kb(user_id: int) -> InlineKeyboardMarkup:
-    """🛒 فروشگاه ارتش — خرید شخصیت با فودکوین، فقط با دکمه."""
+QTY_LABEL = {1: "×۱", 10: "×۱۰", 50: "×۵۰", 0: "حداکثر"}
+
+
+def army_shop_kb(user_id: int, qty: int = 10) -> InlineKeyboardMarkup:
+    """🛒 فروشگاه ارتش — انتخاب تعداد (۱/۱۰/۵۰/حداکثر) + هر شخصیت با یک کلیک."""
     from registry import UNITS
-    from army import unit_price
+    from army import unit_price, QTY_OPTIONS
     b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
-    rows = []
+    if qty not in QTY_OPTIONS:
+        qty = 10
+    rows = [[b(("🔘 " if q == qty else "") + QTY_LABEL[q], f"armyshop:{q}") for q in QTY_OPTIONS]]
     row = []
     for uid_, un in UNITS.items():
         if not un.get("cost"):
             continue
-        row.append(b(f"{un['emoji']} {un['name'].split()[0]} {unit_price(uid_):,}", f"buy:{uid_}"))
+        price = unit_price(uid_) * (qty if qty else 1)
+        lbl = f"{un['emoji']} {un['name'].split()[0]} · {price:,}" if qty else f"{un['emoji']} {un['name'].split()[0]} · حداکثر"
+        row.append(b(lbl, f"buy:{uid_}:{qty}"))
         if len(row) == 2:
             rows.append(row); row = []
     if row:
         rows.append(row)
-    rows.append([b("🔄 بروزرسانی", "armyshop"), b("🍔 منو", "hub")])
+    rows.append([b("🎖 جوخه‌های ۱۰تایی", "squads"), b("🪖 ارتش من", "army")])
+    rows.append([b("🔄 بروزرسانی", f"armyshop:{qty}"), b("🍔 منو", "hub")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def squads_kb(user_id: int) -> InlineKeyboardMarkup:
+    """🎖 جوخه‌های آماده — ۱۰ سرباز از چند شخصیت با یک دکمه."""
+    from army import SQUADS, squad_price
+    b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
+    rows = [[b(f"{sq['emoji']} {sq['name']} · {squad_price(sid):,}🪙", f"squad:{sid}")]
+            for sid, sq in SQUADS.items()]
+    rows.append([b("🛒 خرید تکی/گروهی", "armyshop:10"), b("🪖 ارتش من", "army")])
+    rows.append([b("🍔 منو", "hub")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -138,11 +156,12 @@ def market_kb(user_id: int, listings: list) -> InlineKeyboardMarkup:
 
 
 def army_view_kb(user_id: int) -> InlineKeyboardMarkup:
-    """🪖 ارتش — رفتن به فروشگاه دکمه‌ای."""
+    """🪖 ارتش — خرید گروهی و جوخه با یک کلیک."""
     b = lambda t, c: InlineKeyboardButton(text=t, callback_data=f"h:{user_id}:{c}")
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        b("🛒 خرید سرباز (فودکوین)", "armyshop"),
-    ], [b("🪖 ارتش من", "army"), b("🍔 منو", "hub")]])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [b("🛒 خرید ×۱۰", "armyshop:10"), b("🛒 خرید ×۵۰", "armyshop:50")],
+        [b("🎖 جوخه‌های آماده", "squads"), b("🔄 بروزرسانی", "army")],
+        [b("🍔 منو", "hub")]])
 
 
 def inv_kb(user_id: int) -> InlineKeyboardMarkup:

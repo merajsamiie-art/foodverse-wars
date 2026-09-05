@@ -101,25 +101,98 @@ def unit_price(unit_id: str) -> int:
     return UNIT_FC_PRICE.get(unit_id, 500)
 
 
+BULK_MAX = 100                      # سقف هر خرید گروهی (ضد اشتباه/دستکاری)
+QTY_OPTIONS = (1, 10, 50, 0)        # ۰ = «حداکثر» (هرچه پول می‌رسد، تا سقف)
+
+# 🎖 جوخه‌های آماده — ۱۰ سرباز با یک کلیک (ترکیب‌های سنجیده‌ی مثلث برتری)
+SQUADS = {
+    "balanced": dict(name="جوخه‌ی متعادل", emoji="⚖️",
+                     desc="۴ برگر · ۳ سیب‌زمینی · ۳ بروکلی — همه‌فن‌حریف",
+                     mix={"burger": 4, "fries": 3, "broccoli": 3}),
+    "assault":  dict(name="جوخه‌ی تهاجمی", emoji="⚔️",
+                     desc="۵ سیب‌زمینی · ۳ شیرینی · ۲ میو — ضربه‌ی اول، کریت بالا",
+                     mix={"fries": 5, "candy": 3, "meow": 2}),
+    "fortress": dict(name="جوخه‌ی دژ", emoji="🛡",
+                     desc="۴ پیتزا · ۳ شوالیه پنیر · ۳ بروکلی — سپرِ زنده",
+                     mix={"pizza": 4, "cheese_knight": 3, "broccoli": 3}),
+    "elite":    dict(name="جوخه‌ی نخبه", emoji="🟣",
+                     desc="۴ تاکوچی · ۳ کاپ‌کیک · ۳ ژنرال ترشی — سه قهرمان حماسی",
+                     mix={"taco_ranger": 4, "cupcake_bomber": 3, "pickle_general": 3}),
+}
+
+
+def squad_price(sid: str) -> int:
+    sq = SQUADS.get(sid)
+    if not sq:
+        return 0
+    return sum(unit_price(u) * n for u, n in sq["mix"].items())
+
+
+def max_affordable(user_id: int, unit_id: str) -> int:
+    """چند تا از این سرباز با موجودی فعلی می‌شود خرید (تا سقف BULK_MAX)."""
+    p = player.get(user_id)
+    price = unit_price(unit_id)
+    if price <= 0:
+        return 0
+    return max(0, min(BULK_MAX, int((p["fc"] or 0) // price)))
+
+
+def _add_units(user_id: int, mix: dict):
+    for unit_id, n in mix.items():
+        if n <= 0:
+            continue
+        db.db().ex("INSERT INTO units(user_id, unit_id, count) VALUES(?,?,?) "
+                   "ON CONFLICT(user_id, unit_id) DO UPDATE SET count=count+?",
+                   (user_id, unit_id, n, n))
+
+
 def buy_fc(user_id: int, unit_id: str, count: int = 1) -> tuple:
-    """🛒 خرید سرباز با فودکوین — بدون تایپ، فقط دکمه."""
+    """🛒 خرید سرباز با فودکوین — تکی، ۱۰تایی، ۵۰تایی یا «حداکثر» (count=0)."""
     p = player.get(user_id)
     u = UNITS.get(unit_id)
     if not u or not u.get("cost"):
         return False, "🪖 چنین سربازی نیست."
-    count = max(1, min(count, 50))
+    if count == 0:                                   # حداکثرِ ممکن
+        count = max_affordable(user_id, unit_id)
+        if count <= 0:
+            return False, (f"🪙 حتی برای یک {u['name']} ({unit_price(unit_id):,} فودکوین) پول نداری.\n"
+                           "💡 «شیر» رایگان هر ۱۰ دقیقه · «شیفت» هر ۳ ساعت")
+    count = max(1, min(int(count), BULK_MAX))
     price = unit_price(unit_id) * count
     if (p["fc"] or 0) < price:
-        return False, (f"🪙 {price:,} فودکوین لازم داری — الان {p['fc']:,.0f} داری.\n"
-                       "💡 «فودکوین» بگو و شیر رایگان بگیر!")
+        can = max_affordable(user_id, unit_id)
+        tip = f"💡 با موجودی فعلی تا <b>{can}</b> تا می‌توانی بخری." if can else "💡 «فودکوین» بگو و شیر رایگان بگیر!"
+        return False, (f"🪙 {price:,} فودکوین لازم داری — الان {p['fc']:,.0f} داری.\n{tip}")
     with db.db().tx():
         player.pay(user_id, dict(fc=price))
-        db.db().ex("INSERT INTO units(user_id, unit_id, count) VALUES(?,?,?) "
-                   "ON CONFLICT(user_id, unit_id) DO UPDATE SET count=count+?",
-                   (user_id, unit_id, count, count))
+        _add_units(user_id, {unit_id: count})
+    player.dtrack(user_id, "recruits", count)
     perf.invalidate_player(user_id)
+    pw = army_power(user_id)
     return True, (f"🛒 خرید شد: {u['emoji']} <b>{u['name']}</b> ×{count}\n"
-                  f"🪙 {price:,} فودکوین پرداخت شد — ارمشات آماده‌ی جنگ!")
+                  f"🪙 {price:,} فودکوین پرداخت شد · قدرت ارتش الان <b>{perf.fmt(pw)}</b>\n"
+                  f"{'🔥 خرید گروهی — ارتشت یک‌شبه بزرگ شد!' if count >= 10 else '⚔️ آماده‌ی جنگ!'}")
+
+
+def buy_squad(user_id: int, sid: str) -> tuple:
+    """🎖 خرید جوخه‌ی آماده — ۱۰ سرباز از چند شخصیت با یک کلیک."""
+    sq = SQUADS.get(sid)
+    if not sq:
+        return False, "🎖 چنین جوخه‌ای نیست."
+    p = player.get(user_id)
+    price = squad_price(sid)
+    if (p["fc"] or 0) < price:
+        return False, (f"🪙 {sq['emoji']} {sq['name']} {price:,} فودکوین است — الان {p['fc']:,.0f} داری.\n"
+                       "💡 جوخه‌ی متعادل ارزان‌ترین شروع است.")
+    with db.db().tx():
+        player.pay(user_id, dict(fc=price))
+        _add_units(user_id, sq["mix"])
+    n = sum(sq["mix"].values())
+    player.dtrack(user_id, "recruits", n)
+    perf.invalidate_player(user_id)
+    parts = " · ".join(f"{UNITS[u]['emoji']}×{k}" for u, k in sq["mix"].items())
+    return True, (f"🎖 {sq['emoji']} <b>{sq['name']}</b> به خدمت درآمد!\n"
+                  f"{parts}\n🪙 {price:,} فودکوین · قدرت ارتش الان <b>{perf.fmt(army_power(user_id))}</b>")
 
 
 def recruit(user_id: int, unit_id: str, count: int) -> tuple:
@@ -159,15 +232,49 @@ def apply_losses(user_id: int, pct: float) -> dict:
     return lost
 
 
+CTYPE_FA = {"fastfood": ("🍔", "فست‌فود"), "candy": ("🍭", "شیرینی"), "veggie": ("🥦", "سبزیجات"),
+            "meow": ("😺", "میو"), "weird": ("🦖", "عجیب"), "boss": ("👹", "باس")}
+
+
+def bar(pct: float, width: int = 10) -> str:
+    """نوار درصد — ▰▰▰▱▱ (برای ترکیب ارتش و جان باس)."""
+    pct = max(0.0, min(1.0, float(pct)))
+    fill = int(round(pct * width))
+    return "▰" * fill + "▱" * (width - fill)
+
+
+def composition(user_id: int) -> dict:
+    """سهم هر نوع (fastfood/candy/veggie/…) از کل ارتش — برای مثلث برتری."""
+    a = army_of(user_id)
+    total = sum(a.values()) or 1
+    out: dict[str, int] = {}
+    for uid, n in a.items():
+        ct = UNITS[uid]["ctype"]
+        out[ct] = out.get(ct, 0) + n
+    return {k: v / total for k, v in out.items()}
+
+
 def army_text(user_id: int) -> str:
+    from registry import RARITY
     a = army_of(user_id)
     if not a:
-        return "🪖 ارتش: هنوز هیچی. «جذب برگر ۵»"
-    lines = []
+        return ("🪖 <b>ارتش</b> — خالی!\n\n"
+                "🎖 سریع‌ترین شروع: دکمه‌ی «جوخه‌ی متعادل» = ۱۰ سرباز با یک کلیک\n"
+                "🛒 یا «خرید ارتش» ← تعداد را ۱۰ بگذار و هر شخصیت را ده‌تا ده‌تا بخر.")
+    s = army_stats(user_id)
+    pw = army_power(user_id)
+    lines = [f"🪖 <b>ارتش تو</b> — قدرت <b>{perf.fmt(pw)}</b> · {s['total']} سرباز",
+             f"❤️ {perf.fmt(s['hp'])}  ⚔️ {perf.fmt(s['atk'])}  🛡 {perf.fmt(s['df'])}  "
+             f"💨 {s['spd_avg']:.1f}  🎯 کریت {s['crit']*100:.0f}%", ""]
     for uid, n in sorted(a.items(), key=lambda x: -x[1]):
         u = UNITS[uid]
-        lines.append(f"{u['emoji']} {u['name']} ×{n}")
-    return (f"🪖 <b>ارتش</b> — قدرت {perf.fmt(army_power(user_id))}\n" +
-            "\n".join(lines) +
-            "\n\n⚖️ مثلث برتری: فست‌فود > شیرینی > سبزیجات > فست‌فود (۲۵٪+)\n"
-            "میو و عجیب خنثی‌اند — ارتشِ متنوع، حریفِ متنوع را می‌شکند.")
+        dot = RARITY.get(u.get("rarity", "common"), ("⚪", ""))[0]
+        lines.append(f"{dot} {u['emoji']} <b>{u['name']}</b> ×{n}")
+    comp = composition(user_id)
+    lines += ["", "📊 <b>ترکیب</b>"]
+    for ct, pct in sorted(comp.items(), key=lambda x: -x[1]):
+        em, fa = CTYPE_FA.get(ct, ("•", ct))
+        lines.append(f"{em} {fa} {bar(pct, 8)} {pct*100:.0f}%")
+    lines += ["", "⚖️ مثلث برتری: 🍔 فست‌فود ⟶ 🍭 شیرینی ⟶ 🥦 سبزیجات ⟶ 🍔 (تا ۳۰٪+)",
+              "😺 میو و 🦖 عجیب خنثی‌اند — ارتشِ متنوع، حریفِ متنوع را می‌شکند."]
+    return "\n".join(lines)
