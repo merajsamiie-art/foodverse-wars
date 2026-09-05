@@ -131,7 +131,14 @@ def faucet(user_id: int) -> tuple:
     """🪙 شیر فودکوین — بگو «فودکوین» یا «FC»: مقدار بر اساس لول + کمی شانس (نه ناعادلانه)."""
     p = get(user_id)
     if not p:
-        return False, "👤 دیتای تو را پیدا نکردم — یک دستور بزن تا ثبت شوی."
+        # 🛡 خودترمیم: هیچ‌وقت «پیدا نکردم» نمی‌گیری — همین‌جا ثبتت می‌کنیم
+        try:
+            register(user_id, f"بازیکن{user_id}", None)
+            p = get(user_id)
+        except Exception:
+            pass
+        if not p:
+            return False, "🎮 در گروه بازی «شروع» را بفرست تا بازیکن شوی."
     if on_cd(user_id, "faucet"):
         return False, f"⏳ {cd_left(user_id, 'faucet')} ثانیه صبر — شیر هر ۱۰ دقیقه چکه می‌کند."
     set_cd(user_id, "faucet", CD_FAUCET)

@@ -138,6 +138,17 @@ CREATE INDEX IF NOT EXISTS idx_worlds_started ON worlds(started);
 CREATE INDEX IF NOT EXISTS idx_accounts_fc ON accounts(fc DESC);
 CREATE INDEX IF NOT EXISTS idx_accounts_active ON accounts(last_active DESC);
 CREATE INDEX IF NOT EXISTS idx_txlog_user ON txlog(user_id, at);
+-- ⚡️ مقیاس یک‌میلیون بازیکن: کوئری‌های پرتکرار همیشه indexed
+CREATE INDEX IF NOT EXISTS idx_txlog_at ON txlog(at);
+CREATE INDEX IF NOT EXISTS idx_botmsgs_at ON bot_msgs(at);
+CREATE INDEX IF NOT EXISTS idx_boss_chat ON boss_dmg(chat_id, boss_id, dmg DESC);
+CREATE INDEX IF NOT EXISTS idx_infected_uid ON infected(user_id);
+CREATE INDEX IF NOT EXISTS idx_trades_chat ON trades(chat_id, status);
+CREATE INDEX IF NOT EXISTS idx_units_uid ON units(user_id);
+CREATE INDEX IF NOT EXISTS idx_items_uid ON items(user_id);
+CREATE INDEX IF NOT EXISTS idx_blds_uid ON buildings(user_id);
+CREATE INDEX IF NOT EXISTS idx_shopbuys_day ON shop_buys(user_id, day);
+CREATE INDEX IF NOT EXISTS idx_accounts_wins ON accounts(wins DESC);
 """
 
 
