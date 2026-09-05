@@ -1947,7 +1947,7 @@ def test_announce_changelog():
     assert announce.latest() == announce.VERSION
     txt = announce.render(announce.VERSION)
     assert "خرید گروهی" in txt and "@FoodverseWarsBot" in txt
-    assert not announce.was_posted("9.9")
+    assert announce.was_posted("3.0") and not announce.was_posted("9.9")   # ۳.۰ دستی پست شد (#128)
     announce.mark_posted("9.9", 1)
     assert announce.was_posted("9.9")
     assert "✅" in announce.list_text() or "⏳" in announce.list_text()

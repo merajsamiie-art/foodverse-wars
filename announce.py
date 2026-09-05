@@ -28,6 +28,9 @@ CHANGELOG = {
     ),
 }
 
+# نسخه‌هایی که خارج از بات (مستقیم با Bot API) در کانال پست شده‌اند → ضدتکرار
+POSTED_MANUALLY = {"3.0": 128}
+
 _TABLE = "CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT)"
 
 
@@ -51,13 +54,14 @@ def list_text() -> str:
     _ensure()
     out = ["📣 <b>نسخه‌ها</b>"]
     for v in sorted(CHANGELOG, key=lambda v: tuple(int(x) for x in v.split(".")), reverse=True):
-        r = db.db().one("SELECT v FROM kv WHERE k=?", (f"announced:{v}",))
-        out.append(f"• {v} — {CHANGELOG[v]['title']} {'✅' if r else '⏳'}")
+        out.append(f"• {v} — {CHANGELOG[v]['title']} {'✅' if was_posted(v) else '⏳'}")
     out.append("\n«مدیر اعلان» = آخرین · «مدیر اعلان 3.0» · «مدیر اعلان 3.0!» = ارسال مجدد")
     return "\n".join(out)
 
 
 def was_posted(ver: str) -> bool:
+    if ver in POSTED_MANUALLY:
+        return True
     _ensure()
     return bool(db.db().one("SELECT 1 FROM kv WHERE k=?", (f"announced:{ver}",)))
 
