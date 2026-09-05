@@ -77,7 +77,7 @@ class TTLCache:
 POWER_CACHE = TTLCache("power", ttl=120)      # قدرت ارتش (pid)
 BONUS_CACHE = TTLCache("bonus", ttl=120)      # بونوس تجهیزات/ساختمان (pid)
 BLD_CACHE = TTLCache("bld", ttl=300)          # ساختمان‌ها (pid)
-LB_CACHE = TTLCache("leaderboard", ttl=30)    # رتبه‌بندی‌ها (chat_id یا 'global')
+LB_CACHE = TTLCache("leaderboard", ttl=60)    # رتبه‌بندی‌ها (chat_id یا 'global') — ۱M پلیر
 
 
 def invalidate_player(pid: int):
