@@ -24,6 +24,16 @@ UNITS = {
                     hp=65,  atk=16, df=3,  spd=7,  cost=dict(fc=120, sauce=30)),
     "cheese_knight": dict(name="شوالیه‌ی پنیر", en="Cheese Knight", emoji="🧀", ctype="fastfood", rarity="epic",
                           hp=130, atk=8, df=16, spd=3, cost=dict(fc=130, cheese=30, metal=10)),
+    # 🆕 نسل جدید — سه قهرمان epic در چرخه‌ی مقابله
+    "taco_ranger": dict(name="تاکوچی تک‌خور", en="Taco Ranger", emoji="🌮", ctype="fastfood", rarity="epic",
+                        hp=170, atk=16, df=11, spd=7, crit=0.08,
+                        cost=dict(fc=140, meat=30, sauce=10)),
+    "cupcake_bomber": dict(name="کاپ‌کیک بمباران", en="Cupcake Bomber", emoji="🧁", ctype="candy", rarity="epic",
+                           hp=95, atk=24, df=6, spd=6,
+                           cost=dict(fc=150, sauce=35, cheese=10)),
+    "pickle_general": dict(name="ژنرال ترشی", en="Pickle General", emoji="🥒", ctype="veggie", rarity="epic",
+                           hp=210, atk=10, df=19, spd=4, heal=7,
+                           cost=dict(fc=160, potato=35, metal=15)),
     "lasagnazilla": dict(name="لازاگنی‌زیلا", en="Lasagnazilla", emoji="🦖", ctype="weird", rarity="mythic",
                          hp=400, atk=30, df=20, spd=8, cost=None),  # فقط از تخم
 }
@@ -129,6 +139,15 @@ BOSSES = {
                          hp=11000, atk=70, resist=0.15, dodge=0.30, ai="shadow",
                          lore="در بخار رامن پنهان می‌شود. کاتانا‌اش از نودل خشک است.",
                          loot=dict(fc=(600, 1200), drops=["golden_cheese", "noodle_scroll"])),
+    # 🐕 مینی‌باس‌ها — کوچک، مکرر، جایزه‌ی روزانه + XP خوب
+    "soda_gremlin": dict(name="گرملینِ سودا", en="SODA GREMLIN", emoji="👺", ctype="boss", rarity="common",
+                         hp=2600, atk=32, resist=0.05, ai="berserk", mini=True,
+                         lore="از قوطی سودای گمشده زاده شد. کوچک است، مزاحم نیست… بود.",
+                         loot=dict(fc=(150, 320), xp=(60, 110))),
+    "sandwich_imp": dict(name="دیوَک ساندویچ", en="SANDWICH IMP", emoji="🥪", ctype="boss", rarity="common",
+                         hp=3200, atk=28, resist=0.10, ai="tricky", mini=True,
+                         lore="دو نان، یک وسوسه. لای آن‌ها گیر کرده‌ای.",
+                         loot=dict(fc=(180, 380), xp=(80, 140))),
     # 🎩 رییس‌کل — مثل آلبرت وسکر: فوق‌هوش، تقریباً شکست‌ناپذیر
     "grand_chef": dict(name="آلبرت، آشپز بزرگ", en="ALBERT THE GRAND CHEF", emoji="🎩",
                        ctype="boss", rarity="mythic",

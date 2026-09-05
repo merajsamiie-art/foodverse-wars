@@ -82,7 +82,7 @@ async def main():
         db.db().close()
 
 
-BOT_MSG_TTL = 600          # 🧹 پیام‌های ربات در گروه بعد از ۱۰ دقیقه پاک می‌شوند
+BOT_MSG_TTL = 300          # 🧹 پیام‌های ربات در گروه بعد از ۵ دقیقه پاک می‌شوند — گروه تمیز
 CLEANUP_EVERY = 40         # هر ۴۰ ثانیه یک چرخه
 
 
@@ -92,8 +92,11 @@ async def cleanup_loop(bot):
     while True:
         await asyncio.sleep(CLEANUP_EVERY)
         try:
+            # 🧹 txlog: فقط ۱۴ روز نگه می‌داریم (جلوگیری از رشد بی‌نهایت)
+            db.db().ex("DELETE FROM txlog WHERE at < ? AND id % 97 = 0",
+                       (db.now() - 14 * 86400,))
             rows = db.db().q(
-                "SELECT chat_id, message_id FROM bot_msgs WHERE at < ? LIMIT 25",
+                "SELECT chat_id, message_id FROM bot_msgs WHERE at < ? LIMIT 100",
                 (db.now() - BOT_MSG_TTL,))
             if not rows:
                 continue

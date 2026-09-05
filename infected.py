@@ -134,6 +134,16 @@ def raid(attacker_uid: int, target_uid: int) -> tuple:
     if (D["controlled_by"] or 0) and (D["controlled_until"] or 0) > db.now():
         return False, "🎯 این بازیکن همین حالا زیر کنترلِ دیگری است."
     b = BOSSES[inf["boss_id"]]
+    # ⚔️ سخت‌شدن بازی: هدفِ قوی‌تر می‌تواند اینفکتد را پس بزند (۳۵٪)
+    import army as _army
+    if _army.army_power(target_uid) > _army.army_power(attacker_uid) * 1.5:
+        if random.random() < 0.35:
+            db.db().ex("DELETE FROM infected WHERE user_id=?", (attacker_uid,))
+            perf.invalidate_player(attacker_uid)
+            return False, (f"🧟💥 <b>هجوم شکست خورد!</b>\n"
+                           f"{D['avatar']} <b>{D['name']}</b> ارتش قوی‌تری داشت — "
+                           f"{b['emoji']} {b['name']} را پس زد و آزاد شد!\n"
+                           f"⚠️ اینفکتدت رفت — باس بعدی را دوباره اسیر کن.")
     hours = INFECTED_CONTROL_H.get(inf["tier"], 4)
     # غارت کوچک و سقف‌دار
     steal_res = random.choice(("meat", "cheese", "sauce", "potato", "metal"))

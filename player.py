@@ -131,7 +131,14 @@ def faucet(user_id: int) -> tuple:
     """🪙 شیر فودکوین — بگو «فودکوین» یا «FC»: مقدار بر اساس لول + کمی شانس (نه ناعادلانه)."""
     p = get(user_id)
     if not p:
-        return False, "👤 دیتای تو را پیدا نکردم — یک دستور بزن تا ثبت شوی."
+        # 🛡 خودترمیم: هیچ‌وقت «پیدا نکردم» نمی‌گیری — همین‌جا ثبتت می‌کنیم
+        try:
+            register(user_id, f"بازیکن{user_id}", None)
+            p = get(user_id)
+        except Exception:
+            pass
+        if not p:
+            return False, "🎮 در گروه بازی «شروع» را بفرست تا بازیکن شوی."
     if on_cd(user_id, "faucet"):
         return False, f"⏳ {cd_left(user_id, 'faucet')} ثانیه صبر — شیر هر ۱۰ دقیقه چکه می‌کند."
     set_cd(user_id, "faucet", CD_FAUCET)
@@ -195,7 +202,7 @@ def is_dead(p: dict) -> bool:
 
 
 def die(user_id: int, killer_name: str = "") -> dict:
-    """💀 مرگ: ۶ دقیقه مرده + بخشی از منابع می‌افتد (تجهیزات محفوظ) + احیا با محافظت."""
+    """💀 مرگ: ۵ دقیقه مرده + بخشی از منابع می‌افتد (تجهیزات محفوظ) + احیا با محافظت."""
     p = get(user_id)
     drop = {}
     for r in ("meat", "cheese", "sauce", "potato", "metal", "crystal"):
@@ -203,7 +210,7 @@ def die(user_id: int, killer_name: str = "") -> dict:
         if amt >= 1:
             drop[r] = amt
     upd = {k: round(p[k] - v, 1) for k, v in drop.items()}
-    upd.update(dead_until=now() + DEAD_MINUTES * 60, losses=p["losses"] + 1)
+    upd.update(dead_until=now() + DEAD_MINUTES * 60, losses=p["losses"] + 1, boss_streak=0)
     update(user_id, **upd)
     return dict(ok=True, drop=drop, minutes=DEAD_MINUTES, killer=killer_name)
 
