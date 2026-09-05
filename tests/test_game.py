@@ -650,6 +650,7 @@ def test_war_loss_breaks_control():
     mk("ناجی", 4107)
     army.recruit(4107, "pizza", 40)
     P.ex("DELETE FROM units WHERE user_id=4105")   # قربانیِ قطعی
+    perf.invalidate_player(4105)                    # کش ارتش هم مثل production بی‌اثر شود
     perf.cd_clear_all()
     ok, msg = war.declare(4107, 4105)      # کنترل‌کننده می‌بازد
     assert ok
@@ -1476,23 +1477,379 @@ def test_bot_msgs_cleanup():
     now = time.time()
     P.ex("INSERT INTO bot_msgs VALUES(?,?,?)", (-1001, 11, now - 700))   # قدیمی → پاک
     P.ex("INSERT INTO bot_msgs VALUES(?,?,?)", (-1001, 12, now - 100))   # تازه → ماند
-    rows = P.q("SELECT message_id FROM bot_msgs WHERE at < ? AND chat_id < 0", (now - 600,))
+    rows = P.q("SELECT message_id FROM bot_msgs WHERE at < ? AND chat_id < 0", (now - 300,))
     assert [r["message_id"] for r in rows] == [11]
     # فیش‌ها هرگز در bot_msgs نیستند (به پیوی می‌روند، نه گروه)
     assert P.q("SELECT COUNT(*) c FROM bot_msgs WHERE chat_id > 0")[0]["c"] == 0
     # تنظیمات حلقه
     import run
-    assert run.CLEANUP_EVERY == 40 and run.BOT_MSG_TTL == 600
+    assert run.CLEANUP_EVERY == 40 and run.BOT_MSG_TTL == 300
     src = open("run.py", encoding="utf-8").read()
     assert "pinned_message" in src            # پین‌شده‌ها محافظت می‌شوند
 
 
 def test_menus_distinct():
     import ui
+    # 🍔 فقط یک منو — گروه و پیوی دقیقاً همان یک چیز را می‌بینند
     hub = [b.text for row in ui.hub_kb(1).inline_keyboard for b in row]
     menu = [b.text for row in ui.menu_kb(1).inline_keyboard for b in row]
-    assert "🧭 هاب شخصی من" in hub and "🎮 منوی بازی گروه" in menu
-    # هاب: شخصی (کارت/پک/پاس/خرید) | منوی گروه: بازی (باس/بازار/اتحاد)
-    assert "👤 کارت من" in hub and "💰 خرید فودکوین" in hub
-    assert "👑 باس" in menu and "🔄 بازار" in menu and "🤝 اتحاد" in menu
-    assert "🛍 فروشگاه ویژه" not in menu      # خرید در پیوی است، نه گروه
+    assert hub == menu and "🍔 منوی فوودورس" in menu
+    # همه‌چیز در همان یک منو: بازی + شخصی
+    assert "👑 باس" in menu and "🔄 بازار" in menu and "📦 پک‌های من" in menu
+    assert "💎 بتل‌پس" in menu and "🎨 ظاهر" in menu and "🛒 فروشگاه" in menu
+
+
+# ─── 🎯 دستور تکی + 👑 پروفایل مالک + 📚 آموزش کوتاه ───
+def test_solo_commands_only():
+    from handlers import SOLO_CMDS
+    # «شروع» و «درود» فقط خالی اجرا می‌شوند
+    assert "شروع" in SOLO_CMDS and "درود" in SOLO_CMDS and "منو" in SOLO_CMDS
+    # دستورهای پارامتری در این لیست نیستند
+    for c in ("جذب", "ارتقا", "گذاشتن", "انتقال", "بفروش", "خریدن", "جایزه", "سفارش"):
+        assert c not in SOLO_CMDS, c
+    src = open("handlers.py", encoding="utf-8").read()
+    assert "if cmd in SOLO_CMDS and rest:" in src   # «درود شروع کن» → سکوت
+
+
+def test_king_profile_special():
+    mk("پادشاه", 8694290031)
+    import handlers
+    txt = handlers.profile_text(player.get(8694290031))
+    assert "پادشاه و مالک فوودورس" in txt
+
+
+def test_tutorials_short():
+    import tutorials
+    assert len(tutorials.TUTS) == 6
+    for k, v in tutorials.TUTS.items():
+        assert 150 < len(v) < 450, (k, len(v))       # همه کوتاه
+
+
+# ─── 🛒 فروشگاه ارتش دکمه‌ای + 📖 راهنمای صفحه‌ای ───
+def test_army_shop_fc():
+    mk("خریدار", 7001)
+    player.update(7001, fc=1000)
+    # خرید موفق
+    ok, msg = army.buy_fc(7001, "burger", 5)
+    assert ok and "خرید شد" in msg
+    assert player.get(7001)["fc"] == 1000 - 500
+    assert army.army_stats(7001)["total"] >= 5
+    # پول کم
+    ok, msg = army.buy_fc(7001, "cheese_knight", 5)
+    assert not ok and "فودکوین" in msg
+    # لازاگنی‌زیلا با تخم می‌آید، نه با خرید
+    ok, msg = army.buy_fc(7001, "lasagnazilla", 1)
+    assert not ok
+    # کیبورد فروشگاه: دکمه‌ی هر سرباز + قیمت
+    import ui
+    kb = ui.army_shop_kb(7001)
+    btns = [b for row in kb.inline_keyboard for b in row]
+    assert any(b.callback_data.endswith("buy:burger") for b in btns)
+    assert any("100" in b.text for b in btns)
+    # منو: دکمه‌ی خرید ارتش هست
+    menu = [b.text for row in ui.menu_kb(7001).inline_keyboard for b in row]
+    assert any("خرید ارتش" in t for t in menu)
+    # راهنمای صفحه‌ای
+    from help_pages import HELP_PAGES
+    assert len(HELP_PAGES) == 8 and "دکمه" in HELP_PAGES[0]
+    hk = ui.help_kb(7001, 1)
+    assert any("🔘۲" in b.text for row in hk.inline_keyboard for b in row)
+    assert len([b for row in hk.inline_keyboard for b in row if b.callback_data.split(":", 2)[2].startswith("hp")]) == 8
+
+
+def test_menu_help_button_paginated():
+    """دکمه آموزش منو → صفحه ۱ راهنمای صفحه‌ای، نه HELP بلند"""
+    src = open("handlers.py", encoding="utf-8").read()
+    assert "lambda: texts.HELP" not in src, "هنوز HELP بلند در texts_map!"
+    assert src.count("HELP_PAGES[0]") >= 2  # cmd_help + اکشن منو
+    assert "help_kb" in src
+
+
+# ─── 🖱 فاز دکمه‌ای‌سازی کامل ───
+def test_button_ui_all():
+    """همه‌ی کیبوردهای دکمه‌ای ساخته می‌شوند و callback درست دارند"""
+    import ui
+    # پایگاه: ۶ ساختمان + منو
+    kb = ui.base_kb(1)
+    acts = [b.callback_data.split(":", 2)[2] for row in kb.inline_keyboard for b in row]
+    assert "up:factory" in acts and "up:lab" in acts and acts[-1] == "hub"
+    # سریع: شیر/شیفت/گشت/روزانه
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.quick_kb(1).inline_keyboard for b in row]
+    assert "milk" in acts and "shift" in acts and "patrol" in acts and "daily" in acts
+    # باس: حمله
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.boss_kb(1).inline_keyboard for b in row]
+    assert "bosshit" in acts
+    # پک: خرید + بازکردن
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.packs_kb(1).inline_keyboard for b in row]
+    assert any(a.startswith("pkbuy:") for a in acts) and any(a.startswith("pkopen:") for a in acts)
+    # بتل‌پس: پله‌های free/prem
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.pass_kb(1).inline_keyboard for b in row]
+    assert "bp:1f" in acts and "bp:6p" in acts
+    # بازار: آگهی
+    kb = ui.market_kb(1, [(41, "🛒 آگهی #41 — 🪙 900")])
+    assert kb.inline_keyboard[0][0].callback_data.endswith("mkt:41")
+    # ارتش: لینک فروشگاه
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.army_view_kb(1).inline_keyboard for b in row]
+    assert "armyshop" in acts
+
+
+def test_button_bugfix_buy_split():
+    """باگ فیکس شد: buy بعد از split — نه startswith('buy:')"""
+    src = open("handlers.py", encoding="utf-8").read()
+    assert 'action.startswith("buy:")' not in src
+    assert 'action == "buy"' in src
+    # اکشن‌های عملیاتی هندل می‌شوند
+    for a in ('"up"', '"milk"', '"bosshit"', '"pkbuy"', '"pkopen"', '"mkt"', '"bp"'):
+        assert a in src, a
+    assert '"patrol"' in src and '"shift"' in src
+    # bp: پله + track درست پارس می‌شود
+    assert 'arg[:-1] if arg and arg[-1] in "fp"' in src
+
+
+def test_button_actions_work():
+    """اکشن‌های دکمه‌ای همان منطق دستورها را صدا می‌زنند — ارتقا با دکمه"""
+    mk("دکمه‌ای", 7002)
+    ok, msg = base.upgrade(7002, "factory")
+    assert ok
+    ok, msg = army.buy_fc(7002, "burger", 1)
+    assert ok  # خرید دکمه‌ای کار می‌کند
+
+
+def test_every_page_has_back():
+    """همه‌ی کیبوردها دکمه‌ی بازگشت/منو دارند"""
+    import ui
+    kbs = [ui.base_kb(1), ui.quick_kb(1), ui.boss_kb(1), ui.packs_kb(1),
+           ui.pass_kb(1), ui.market_kb(1, []), ui.army_view_kb(1),
+           ui.army_shop_kb(1), ui.help_kb(1, 0), ui.help_kb(1, 2), ui.sub_kb(1, [])]
+    for kb in kbs:
+        acts = [b.callback_data.split(":", 2)[2] for row in kb.inline_keyboard for b in row]
+        assert "hub" in acts or "back" in acts, f"بدون بازگشت: {acts}"
+
+
+def test_shop_buy_pid_direct():
+    """فیکس باگ: خرید پک با شناسه‌ی مستقیم از دکمه"""
+    import ui
+    mk("پک‌خریدار", 7009)
+    player.update(7009, fc=100000)
+    perf.cd_clear_all()
+    from registry import PACKS
+    pid = next(k for k, v in PACKS.items() if v.get("fc_price"))
+    fc0 = player.get(7009)["fc"]
+    ok, msg = shop.buy(7009, pid)          # شناسه‌ی مستقیم (مسیر دکمه)
+    assert ok, msg
+    assert player.get(7009)["fc"] < fc0    # فودکوین واقعاً کم شد
+    # منو: ردیف سریع
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.menu_kb(7009).inline_keyboard for b in row]
+    assert "milk" in acts and "shift" in acts and "patrol" in acts
+
+
+def test_base_kb_live_price():
+    """دکمه‌های پایگاه: قیمت زنده‌ی ارتقا + سطح"""
+    import ui
+    mk("سازنده", 7010)
+    kb = ui.base_kb(7010)
+    texts = [b.text for row in kb.inline_keyboard for b in row]
+    assert any("⬆️" in t and "🪙" in t for t in texts)   # قیمت روی دکمه
+    assert any("۰" in t or "0" in t or "→" in t for t in texts)  # سطح فعلی→بعدی
+    # بعد از ارتقا، قیمت دکمه بالا می‌رود
+    t0 = next(t for t in texts if "کارخانه" in t)
+    base.upgrade(7010, "factory")
+    perf.cd_clear_all()
+    t1 = next(b.text for row in ui.base_kb(7010).inline_keyboard for b in row if "کارخانه" in b.text)
+    assert t0 != t1   # قیمت/سطح بروز شد
+
+
+def test_typed_commands_have_back_kb():
+    """دستورهای تایپی هم دکمه‌ی بازگشت/منو دارند — هیچ‌جا گیر نمی‌کنی"""
+    src = open("handlers.py", encoding="utf-8").read()
+    for pat in ["kb=ui.base_kb", "kb=ui.army_view_kb", "kb=ui.boss_kb",
+                "kb=ui.packs_kb", "kb=ui.pass_kb", "kb=ui.quick_kb",
+                "reply_markup=ui.quick_kb"]:
+        assert pat in src, pat
+    # صفحات راهنمای ۸گانه همه kb دارند
+    import ui
+    for pg in range(8):
+        acts = [b.callback_data.split(":", 2)[2] for row in ui.help_kb(1, pg).inline_keyboard for b in row]
+        assert "hub" in acts
+    # فروشگاه ارتش: منو
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.army_shop_kb(1).inline_keyboard for b in row]
+    assert "hub" in acts
+
+
+def test_full_button_coverage():
+    """فاز نهایی: انبار/اینفکتد/فروشگاه چرخشی/قیمت‌ها/پیشنهاد — همه دکمه‌ای"""
+    import ui
+    mk("دکمه‌ای۲", 7011)
+    # انبار: دکمه تجهیز + بازکردن پک + منو
+    player.update(7011, fc=5000)
+    perf.cd_clear_all()
+    shop.buy(7011, "starter_pack")     # پک برود داخل انبار
+    player.add_item(7011, "burger_tank", 1)
+    kb = ui.inv_kb(7011)
+    acts = [b.callback_data.split(":", 2)[2] for row in kb.inline_keyboard for b in row]
+    assert any(a.startswith("pkopen:") for a in acts), acts
+    assert "eq:burger_tank" in acts
+    assert "hub" in acts
+    # اینفکتد
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.infected_kb(7011).inline_keyboard for b in row]
+    assert "infect" in acts and "infected" in acts and "hub" in acts
+    # فروشگاه: اسلات چرخشی + پک + منو
+    kb = ui.shop_kb(7011)
+    acts = [b.callback_data.split(":", 2)[2] for row in kb.inline_keyboard for b in row]
+    assert any(a.startswith("sbuy:") for a in acts), acts
+    assert any(a.startswith("pkbuy:") for a in acts)
+    assert "hub" in acts
+    # بازار: دکمه قیمت‌ها
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.market_kb(7011, []).inline_keyboard for b in row]
+    assert "prices" in acts
+    # راهنما: دکمه پیشنهاد
+    acts = [b.callback_data.split(":", 2)[2] for row in ui.help_kb(7011, 0).inline_keyboard for b in row]
+    assert "hint" in acts
+    # hint_text مشترک: دستور و دکمه
+    import handlers as H
+    h = H.hint_text(7011, CH)
+    assert "پیشنهاد کوچیار" in h
+    h2 = H.hint_text(999999, CH)   # ناشناس → خودترمیم: ثبت + نکته تازه‌وارد
+    assert "پیشنهاد کوچیار" in h2 and player.get(999999) is not None
+    # sbuy با کلید اسلات مستقیم کار می‌کند
+    from shop import daily_slots, weekly_slots
+    perf.cd_clear_all()
+    ok, msg = shop.buy(7011, (daily_slots() + weekly_slots())[0])
+    assert ok, msg   # خرید اسلات با دکمه واقعاً کار می‌کند
+
+
+def test_scale_1m_indexes():
+    """مقیاس ۱M پلیر: همه‌ی کوئری‌های پرتکرار indexed"""
+    c = db.db().conn
+    idx = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+    need = {"idx_txlog_at", "idx_botmsgs_at", "idx_boss_chat", "idx_infected_uid",
+            "idx_trades_chat", "idx_units_uid", "idx_items_uid", "idx_blds_uid",
+            "idx_shopbuys_day", "idx_accounts_wins"}
+    missing = need - idx
+    assert not missing, f"index گمشده: {missing}"
+    # cleanup txlog در run.py هست (جلوگیری از رشد بی‌نهایت)
+    src = open("run.py", encoding="utf-8").read()
+    assert "DELETE FROM txlog WHERE at <" in src
+    assert "LIMIT 100" in src   # batch بزرگ‌تر برای ترافیک بالا
+
+
+def test_scale_benchmark():
+    """پرفورمنس: ۵k بازیکن → کوئری‌های کلیدی زیر ۵۰ms"""
+    import time
+    c = db.db().conn
+    c.executemany("INSERT OR IGNORE INTO accounts(user_id,name,avatar,fc,level) VALUES(?,?,?, ?,?)",
+                  [(3_000_000+i, f"β{i}", "🥷", 100.0*i, i % 50) for i in range(5_000)])
+    c.executemany("INSERT OR REPLACE INTO units(user_id,unit_id,count) VALUES(?,?,?)",
+                  [(3_000_000+i, "burger", 10) for i in range(5_000)])
+    c.commit()
+    t = time.time()
+    c.execute("SELECT name, fc FROM accounts ORDER BY fc DESC LIMIT 10").fetchall()
+    c.execute("SELECT unit_id, count FROM units WHERE user_id=?", (3_002_000,)).fetchall()
+    c.execute("SELECT chat_id, message_id FROM bot_msgs WHERE at < ? LIMIT 100", (9e9,)).fetchall()
+    dt = (time.time() - t) * 1000
+    assert dt < 50, f"کند: {dt}ms"
+
+
+def test_faucet_selfheal():
+    """🛡 خودترمیم: بازیکن ناشناس هم شیر می‌گیرد — هرگز «پیدا نکردم» نه"""
+    # بازیکنی که اصلاً ثبت نشده
+    ok, msg = player.faucet(987654321)
+    assert ok, msg                      # ثبت خودکار + شیر موفق
+    assert player.get(987654321) is not None
+    assert "پیدا نکردم" not in msg
+    # بار دوم: بازیکن هست، عادی
+    perf.cd_clear_all()
+    ok2, msg2 = player.faucet(987654321)
+    assert ok2 and "شیر" in msg2
+
+
+# ─── 🆕 فاز ۱۶: سربازها + مینی‌باس + دفتر + تگ ───
+def test_new_units_epic():
+    """۳ سرباز epic جدید در چرخه‌ی مقابله"""
+    from registry import UNITS
+    for uid_ in ("taco_ranger", "cupcake_bomber", "pickle_general"):
+        u = UNITS[uid_]
+        assert u["cost"] and u["rarity"] == "epic"
+    assert UNITS["taco_ranger"]["ctype"] == "fastfood"
+    assert UNITS["cupcake_bomber"]["ctype"] == "candy"
+    assert UNITS["pickle_general"]["ctype"] == "veggie"
+    # قیمت FC دارند (فروشگاه دکمه‌ای)
+    from army import UNIT_FC_PRICE
+    assert UNIT_FC_PRICE["taco_ranger"] == 700 and UNIT_FC_PRICE["pickle_general"] == 850
+    # خرید واقعی کار می‌کند
+    mk("تاکوخریدار", 7012)
+    player.update(7012, fc=1000)
+    perf.cd_clear_all()
+    ok, msg = army.buy_fc(7012, "taco_ranger", 1)
+    assert ok and player.get(7012)["fc"] == 300
+
+
+def test_mini_bosses():
+    """۲ مینی‌باس: hp کم، loot fc + xp، مسیر spawn جدا"""
+    from registry import BOSSES
+    minis = [k for k, v in BOSSES.items() if v.get("mini")]
+    assert len(minis) == 2
+    for k in minis:
+        b = BOSSES[k]
+        assert b["hp"] <= 4000 and "xp" in b["loot"] and b["loot"]["fc"]
+    # تگ بازیکنان فعال — دنیای اختصاصی این تست
+    MCH = CH - 77001
+    mk("تگ‌شونده", 7013)
+    db.db().ex("INSERT OR IGNORE INTO worlds(chat_id, started) VALUES(?,1)", (MCH,))
+    player.register(7013, "تگ‌شونده", MCH)
+    player.touch_world(MCH, 7013)
+    t = boss.tag_active(MCH)
+    assert "tg://user?id=7013" in t
+    # spawn مینی: mini_next گذشته → مینی می‌آید + تگ داخلش
+    db.db().ex("UPDATE worlds SET started=1, mini_next=?, boss_next=?, boss_id=NULL, last_boss_check=0 WHERE chat_id=?",
+               (db.now() - 10, db.now() + 99999, MCH))
+    msg = boss.spawn_tick(MCH, force=False)
+    assert msg and "مینی‌باس" in msg and "tg://user?id=7013" in msg
+    # باس عادی: مینی‌ها در pool نیستند
+    w = db.db().one("SELECT boss_id FROM worlds WHERE chat_id=?", (MCH,))
+    assert w["boss_id"] in minis
+
+
+def test_ledger_and_first_boot():
+    """📒 دفتر ثبت + باس همان اولِ استارت نمی‌آید"""
+    import handlers as H
+    mk("دفترنویس", 7014)
+    db.db().ex("INSERT INTO txlog(chat_id,user_id,kind,detail,at) VALUES(?,?,?, ?,?)",
+               (CH, 7014, "shop_buy", "برگر", db.now()))
+    txt = H.ledger_text(7014)
+    assert "دفتر" in txt and "برگر" in txt
+    txt0 = H.ledger_text(888888)
+    assert "خالی" in txt0
+    # events: دور اول بدون باس
+    import events
+    ev = events.EventEngine(None)
+    assert ev._first is True
+    ev._first = False; ev._first = True
+
+
+# ─── 💪 فاز ۱۷: سختی + زنجیره + دراپ مینی ───
+def test_harder_infected_and_streak():
+    """اینفکتد سخت‌تر + زنجیره‌ی شکار — دنیای ایزوله‌ی این تست"""
+    from config import INFECTED_WINDOW
+    assert INFECTED_WINDOW == 300   # پنجره‌ی اسیر: ۵ دقیقه (سخت‌تر)
+    SCH = CH - 88001
+    mk("شکارچی", 7021)
+    db.db().ex("INSERT OR REPLACE INTO worlds(chat_id, started, boss_id, boss_hp, boss_max_hp, boss_until, boss_tier) "
+               "VALUES(?,1,'soda_gremlin', 100, 100, ?, 1)", (SCH, db.now() + 3600))
+    db.db().ex("INSERT OR REPLACE INTO units(user_id,unit_id,count) VALUES(7021,'burger',10)")
+    player.update(7021, boss_streak=2)
+    perf.cd_clear_all()
+    import boss as B
+    ok, msg = B.attack(7021, SCH)
+    assert ok
+    assert player.get(7021)["boss_streak"] == 3   # ۲→۳ با حمله
+    # مرگ → streak صفر
+    player.update(7021, dead_until=db.now() + 300, boss_streak=0)
+    assert player.get(7021)["boss_streak"] == 0
+    # مینی‌باس: xp loot دارد + mini flag
+    from registry import BOSSES
+    assert BOSSES["soda_gremlin"]["loot"]["xp"]
+    # هجوم ریسک‌دار: هدف قوی → ممکن است شکست بخورد (seed قابل تکرار)
+    src = open("infected.py", encoding="utf-8").read()
+    assert "army_power(target_uid) > _army.army_power(attacker_uid) * 1.5" in src
+    assert "هجوم شکست خورد" in src

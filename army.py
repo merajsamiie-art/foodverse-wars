@@ -89,6 +89,39 @@ def army_power(user_id: int) -> float:
     return val
 
 
+# 💰 قیمت فودکوین سربازها — خرید راحت با یک کلیک
+UNIT_FC_PRICE = {
+    "burger": 100, "fries": 150, "broccoli": 150, "meow": 400,
+    "pizza": 400, "candy": 400, "cheese_knight": 1200, "lasagnazilla": 3000,
+    "taco_ranger": 700, "cupcake_bomber": 750, "pickle_general": 850,
+}
+
+
+def unit_price(unit_id: str) -> int:
+    return UNIT_FC_PRICE.get(unit_id, 500)
+
+
+def buy_fc(user_id: int, unit_id: str, count: int = 1) -> tuple:
+    """🛒 خرید سرباز با فودکوین — بدون تایپ، فقط دکمه."""
+    p = player.get(user_id)
+    u = UNITS.get(unit_id)
+    if not u or not u.get("cost"):
+        return False, "🪖 چنین سربازی نیست."
+    count = max(1, min(count, 50))
+    price = unit_price(unit_id) * count
+    if (p["fc"] or 0) < price:
+        return False, (f"🪙 {price:,} فودکوین لازم داری — الان {p['fc']:,.0f} داری.\n"
+                       "💡 «فودکوین» بگو و شیر رایگان بگیر!")
+    with db.db().tx():
+        player.pay(user_id, dict(fc=price))
+        db.db().ex("INSERT INTO units(user_id, unit_id, count) VALUES(?,?,?) "
+                   "ON CONFLICT(user_id, unit_id) DO UPDATE SET count=count+?",
+                   (user_id, unit_id, count, count))
+    perf.invalidate_player(user_id)
+    return True, (f"🛒 خرید شد: {u['emoji']} <b>{u['name']}</b> ×{count}\n"
+                  f"🪙 {price:,} فودکوین پرداخت شد — ارمشات آماده‌ی جنگ!")
+
+
 def recruit(user_id: int, unit_id: str, count: int) -> tuple:
     p = player.get(user_id)
     u = UNITS.get(unit_id)

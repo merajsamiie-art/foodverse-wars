@@ -25,6 +25,7 @@ class EventEngine:
         self.bot = bot
         self.interval = interval
         self._task = None
+        self._first = True          # 🚫 دور اول بعد از استارت: بدون باس — فایت همان اول نمی‌آید
         self._last_amb: dict[int, float] = {}
 
     async def _hourly(self):
@@ -39,6 +40,9 @@ class EventEngine:
             infected.cleanup()   # 🧟 اینفکتد‌های سه‌روزه آزاد می‌شوند و کنترل‌ها می‌شکند
         except Exception:
             pass
+        if self._first:
+            self._first = False   # ⏳ استارت تازه: باس/مینی فقط از دور بعد — نه همان اول
+            return
         rows = db.db().q("SELECT chat_id FROM worlds WHERE started=1")
         for r in rows:
             cid = r["chat_id"]
