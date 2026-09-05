@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS worlds(
   started INTEGER DEFAULT 0,
   created_at REAL, last_tick REAL,
   boss_id TEXT, boss_hp REAL, boss_max_hp REAL, boss_until REAL,
-  last_boss_check REAL DEFAULT 0, boss_next REAL DEFAULT 0, boss_stolen REAL DEFAULT 0
+  last_boss_check REAL DEFAULT 0, boss_next REAL DEFAULT 0, boss_stolen REAL DEFAULT 0,
+  mini_next REAL DEFAULT 0
 );
 -- 🧹 پیام‌های ربات در گروه‌ها — پاک‌سازی خودکار
 CREATE TABLE IF NOT EXISTS bot_msgs(
@@ -138,6 +139,17 @@ CREATE INDEX IF NOT EXISTS idx_worlds_started ON worlds(started);
 CREATE INDEX IF NOT EXISTS idx_accounts_fc ON accounts(fc DESC);
 CREATE INDEX IF NOT EXISTS idx_accounts_active ON accounts(last_active DESC);
 CREATE INDEX IF NOT EXISTS idx_txlog_user ON txlog(user_id, at);
+-- ⚡️ مقیاس یک‌میلیون بازیکن: کوئری‌های پرتکرار همیشه indexed
+CREATE INDEX IF NOT EXISTS idx_txlog_at ON txlog(at);
+CREATE INDEX IF NOT EXISTS idx_botmsgs_at ON bot_msgs(at);
+CREATE INDEX IF NOT EXISTS idx_boss_chat ON boss_dmg(chat_id, boss_id, dmg DESC);
+CREATE INDEX IF NOT EXISTS idx_infected_uid ON infected(user_id);
+CREATE INDEX IF NOT EXISTS idx_trades_chat ON trades(chat_id, status);
+CREATE INDEX IF NOT EXISTS idx_units_uid ON units(user_id);
+CREATE INDEX IF NOT EXISTS idx_items_uid ON items(user_id);
+CREATE INDEX IF NOT EXISTS idx_blds_uid ON buildings(user_id);
+CREATE INDEX IF NOT EXISTS idx_shopbuys_day ON shop_buys(user_id, day);
+CREATE INDEX IF NOT EXISTS idx_accounts_wins ON accounts(wins DESC);
 """
 
 
@@ -148,6 +160,11 @@ class DB:
         self.lock = threading.RLock()
         self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        # 🐕 مینی‌باس: ستون جدید برای دنیاهای قدیمی
+        try:
+            self.conn.execute("ALTER TABLE worlds ADD COLUMN mini_next REAL DEFAULT 0")
+        except Exception:
+            pass
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA synchronous=FULL")   # 💪 قوی‌ترین سیو: حتی در قطع برق، هیچ داده‌ای گم نمی‌شود
         # ⚡ پرفورمنس زیر بار سنگین

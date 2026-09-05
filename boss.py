@@ -1,5 +1,6 @@
 # 👑 Boss Engine — رید گروهی: آسیب ثبت، جایزه بر مشارکت + تیر + استخر دنیا + اینفکتد
 import json
+import html
 import random
 
 import army
@@ -26,6 +27,18 @@ GRAND_PHASES = {
 AI_NAME = {"berserk": "🔴 خشمک", "tricky": "🎭 حیله‌گر", "swarm": "🌊 سیلاب",
            "healer": "💚 شفادهنده", "thief": "🤑 دزد", "shadow": "🌫️ سایه",
            "ultimate": "🩸 فوق‌هوشِ نهایی"}
+
+
+def tag_active(chat_id: int, hours: float = 12, limit: int = 8) -> str:
+    """📣 تگ بازیکنان فعال اخیر — تا بیایند باس بزنند."""
+    rows = db.db().q("""SELECT w.user_id, a.name FROM world_players w
+                        JOIN accounts a ON a.user_id=w.user_id
+                        WHERE w.chat_id=? AND w.last_active>? LIMIT ?""",
+                     (chat_id, db.now() - hours * 3600, limit))
+    if not rows:
+        return ""
+    return "\n📣 " + " ".join(f'<a href="tg://user?id={r["user_id"]}">{html.escape(r["name"] or "بازیکن")}</a>'
+                              for r in rows)
 
 
 def _next_boss_gap() -> int:
@@ -99,6 +112,29 @@ def spawn_tick(chat_id: int, force: bool = False, tier: int | None = None) -> st
     if not force and t - (ch["last_boss_check"] or 0) < BOSS_CHECK_S:
         return None
     db.db().ex("UPDATE worlds SET last_boss_check=? WHERE chat_id=?", (t, chat_id))
+    # 🐕 مینی‌باس: دروازه‌ی خودش — هر ۳ تا ۸ ساعت، سریع و جایزه‌دار
+    if not force and not active(chat_id):
+        mn = ch["mini_next"] or 0
+        if not mn:
+            db.db().ex("UPDATE worlds SET mini_next=? WHERE chat_id=?",
+                       (t + random.randint(2 * 3600, 5 * 3600), chat_id))
+        elif t >= mn:
+            db.db().ex("UPDATE worlds SET mini_next=? WHERE chat_id=?",
+                       (t + random.randint(3 * 3600, 8 * 3600), chat_id))
+            bid = random.choice([k for k, v in BOSSES.items() if v.get("mini")])
+            b = BOSSES[bid]
+            hp = round(b["hp"] * (1 + 0.5 * (tier or 1)))
+            db.db().ex("""UPDATE worlds SET boss_id=?, boss_hp=?, boss_max_hp=?, boss_until=?,
+                          boss_tier=? WHERE chat_id=?""",
+                       (bid, hp, hp, t + BOSS_DURATION, 1, chat_id))
+            db.db().ex("DELETE FROM boss_dmg WHERE chat_id=? AND boss_id=?", (chat_id, bid))
+            xlo, xhi = b["loot"].get("xp", (60, 110))
+            return (f"🐕 <b>مینی‌باس!</b>\n"
+                    f"{b['emoji']} <b>{b['name']}</b> یواشکی آمد — {TIER_BADGE.get(1, '')}\n"
+                    f"📜 {b['lore']}\n"
+                    f"❤️ {hp:,} | ⏳ {BOSS_DURATION // 60} دقیقه | «باس» بزن!\n"
+                    f"🧠 هوش: <b>{AI_NAME.get(b.get('ai', ''), '❔')}</b> | ⭐️ XP: {xlo}-{xhi}"
+                    + tag_active(chat_id))
     if not force:
         n = db.db().one("SELECT COUNT(*) c FROM world_players WHERE chat_id=? AND last_active>?",
                         (chat_id, t - 86400))["c"]
@@ -120,6 +156,7 @@ def spawn_tick(chat_id: int, force: bool = False, tier: int | None = None) -> st
     if not pool:
         pool = list(BOSSES)
     pool = [x for x in pool if x != "grand_chef"]   # 🎩 رییس‌کل فقط با شرط ۵ کیل می‌آید
+    pool = [x for x in pool if not BOSSES.get(x, {}).get("mini")]  # 🐕 مینی‌باس مسیر خودش را دارد
     revenge = (ch["revenge_bid"] or "") if (ch and not force) else ""
     revenge_uid = (ch["revenge_uid"] or 0) if ch else 0
     kills = (ch["boss_kills"] or 0) if (ch and not force) else 0
@@ -167,7 +204,8 @@ def spawn_tick(chat_id: int, force: bool = False, tier: int | None = None) -> st
     return (head
             + f"❤️ {hp:,} | 📜 {b['lore']}\n"
             f"⏳ {BOSS_DURATION // 60} دقیقه — «باس» برای حمله‌ی گروهی\n"
-            f"🧟 آسیب‌برتر می‌تواند بعد از سقوطش، آن را اسیر کند: «اینفکت»")
+            f"🧟 آسیب‌برتر می‌تواند بعد از سقوطش، آن را اسیر کند: «اینفکت»"
+            + tag_active(chat_id))
 
 
 def attack(user_id: int, chat_id: int) -> tuple:
@@ -347,8 +385,15 @@ def _finish(chat_id: int, boss_id: str, last_uid: int) -> str:
         share = int(random.uniform(lo, hi) * (r["dmg"] / total) * 2.5
                     * (1.5 if i == 0 else 1.0) * loot_mult)
         player.grant(r["user_id"], fc=share)
+        xp_line = ""
+        xpr = b["loot"].get("xp")
+        if xpr:   # ⭐️ مینی‌باس: XP بر اساس سهم آسیب
+            xp_amt = int(random.uniform(*xpr) * (r["dmg"] / total) * 2.5)
+            if xp_amt > 0:
+                player.gain_xp(r["user_id"], xp_amt)
+                xp_line = f" | ⭐️ +{xp_amt} XP"
         tag = "🥇" if i == 0 else ("🥈" if i == 1 else "🥉")
-        lines.append(f"{tag} {r['avatar']} {r['name']} — آسیب {r['dmg']:,.0f} → 🪙 {share:,} فودکوین")
+        lines.append(f"{tag} {r['avatar']} {r['name']} — آسیب {r['dmg']:,.0f} → 🪙 {share:,} فودکوین{xp_line}")
         seen.add(r["user_id"])
     if last_uid not in seen:
         lp = player.get(last_uid)
